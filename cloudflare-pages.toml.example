@@ -1,0 +1,4 @@
+# Optional example. In Cloudflare Pages dashboard use:
+# Build command: npm run build
+# Build output directory: dist
+# Environment variables: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
