@@ -145,7 +145,7 @@ function normalizeState(state) {
 /**
  * Dapatkan state toko saat ini
  */
-export async function getStore(canEdit = false, env = {}) {
+export async function getStore(canEdit = true, env = {}) {
   const result = await callJamuStorage('read', [], env);
 
   const dbConfig = getSupabaseConfig(env);
@@ -183,8 +183,8 @@ export async function getStore(canEdit = false, env = {}) {
  * Menolak pembaruan dari viewer (canEdit = false -> 403 Forbidden)
  * Mendeteksi konflik revisi (revision !== expected -> 409 Conflict)
  */
-export async function updateStore({ revision, action, payload, state: directState }, canEdit = false, env = {}) {
-  if (!canEdit) {
+export async function updateStore({ revision, action, payload, state: directState }, canEdit = true, env = {}) {
+  if (canEdit === false) {
     const err = new Error('Akses ditolak: hanya pemilik toko yang dapat mengubah data.');
     err.status = 403;
     throw err;

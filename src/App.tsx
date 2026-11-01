@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowUpRight, BarChart3, Calendar, Check, ClipboardList,
-  Download, FileText, LayoutDashboard, Lock, Menu,
+  Download, FileText, LayoutDashboard, Menu,
   Package, Plus, RefreshCw, RotateCcw, Search, Settings, ShoppingCart,
-  Sprout, Trash2, TrendingUp, Unlock, X
+  Sprout, Trash2, TrendingUp, X
 } from "lucide-react";
 import {
   createSale, deleteProduct, demoProducts, demoSales,
   getProducts, getSales, saveProduct, fetchStore,
-  recordStocktake, authenticateOwnerApi, logoutOwnerApi,
-  isSupabaseConfigured
+  recordStocktake, isSupabaseConfigured
 } from "./lib/data";
 import type { Product, Sale, ViewName } from "./types";
 
@@ -179,13 +178,6 @@ export default function App() {
   const [search, setSearch] = useState("");
   const [historyDateFilter, setHistoryDateFilter] = useState("");
   const [showAddSale, setShowAddSale] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [unlockCode, setUnlockCode] = useState("WISNU");
-  const [unlockError, setUnlockError] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"addSale" | "dailyStock" | "quickStock" | null>(null);
-  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   // Modals
   const [showProductForm, setShowProductForm] = useState(false);
@@ -247,7 +239,6 @@ export default function App() {
       const store = await fetchStore();
       setProducts(sortProductsByOrder(store.products));
       setSales(store.sales);
-      setIsLocked(!store.canEdit);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally {
@@ -314,12 +305,6 @@ export default function App() {
   const cartTotal = cart.reduce((sum, item) => sum + item.qty * item.unit_price, 0);
 
   const openNewProduct = () => {
-    if (isLocked) {
-      setUnlockCode("");
-      setUnlockError("Silakan masukkan kode akses pemilik (WISNU) untuk menambah barang.");
-      setShowUnlockModal(true);
-      return;
-    }
     setEditingProduct(null);
     setProductDraft({
       name: "",
@@ -335,12 +320,6 @@ export default function App() {
   };
 
   const openEditProduct = (p: Product) => {
-    if (isLocked) {
-      setUnlockCode("");
-      setUnlockError("Silakan masukkan kode akses pemilik (WISNU) untuk mengubah barang.");
-      setShowUnlockModal(true);
-      return;
-    }
     setEditingProduct(p);
     setProductDraft({
       name: p.name,
@@ -410,13 +389,6 @@ export default function App() {
 
   // Open daily batch stock update
   const handleOpenDailyStock = () => {
-    if (isLocked) {
-      setPendingAction("dailyStock");
-      setUnlockCode("WISNU");
-      setUnlockError("Silakan masukkan kode akses pemilik (WISNU) untuk membuka form pengisian stok barang.");
-      setShowUnlockModal(true);
-      return;
-    }
     const draft: Record<string, number | ""> = {};
     const statusDraft: Record<string, string> = {};
     products.forEach(p => {
@@ -430,13 +402,6 @@ export default function App() {
   };
 
   const handleToggleAddSale = () => {
-    if (isLocked) {
-      setPendingAction("addSale");
-      setUnlockCode("WISNU");
-      setUnlockError("Silakan masukkan kode akses pemilik untuk membuka form pencatatan penjualan.");
-      setShowUnlockModal(true);
-      return;
-    }
     setShowAddSale(v => !v);
   };
 
@@ -464,12 +429,6 @@ export default function App() {
   };
 
   const handleSetup14Variants = async () => {
-    if (isLocked) {
-      setUnlockCode("");
-      setUnlockError("Silakan masukkan kode akses pemilik (WISNU) untuk menyiapkan varian.");
-      setShowUnlockModal(true);
-      return;
-    }
     const standardVariants = [
       { sku: "H", name: "Habba", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 10, min_stock: 3 },
       { sku: "KS", name: "Kunyit Sirih", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 12, min_stock: 3 },
@@ -682,34 +641,6 @@ export default function App() {
 
           <div className="topbar-right">
             <span className="topbar-date">{formattedHeaderDate}</span>
-            <span className="owner-pill">
-              {isLocked ? "Mode terkunci" : "Mode pemilik"}
-            </span>
-            <button
-              className={`lock-toggle-btn ${isLocked ? "is-locked" : ""}`}
-              onClick={async () => {
-                if (isLocked) {
-                  setPendingAction(null);
-                  setPendingProduct(null);
-                  setUnlockCode("WISNU");
-                  setUnlockError("");
-                  setShowUnlockModal(true);
-                } else {
-                  try {
-                    await logoutOwnerApi();
-                    setIsLocked(true);
-                    setNotice("Mode pemilik berhasil dikunci.");
-                    await refresh();
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : "Gagal mengunci sesi.");
-                  }
-                }
-              }}
-              title={isLocked ? "Buka mode pemilik (kode: WISNU)" : "Kunci mode pemilik"}
-            >
-              {isLocked ? <Unlock size={13} /> : <Lock size={13} />}
-              <span>{isLocked ? "Buka" : "Kunci"}</span>
-            </button>
             <button
               className="icon-btn"
               onClick={() => void refresh()}
@@ -858,12 +789,6 @@ export default function App() {
               onNavigate={setView}
               onOpenCatatPenjualan={handleToggleAddSale}
               onQuickEditStock={p => {
-                if (isLocked) {
-                  setUnlockCode("");
-                  setUnlockError("Silakan masukkan kode akses pemilik (WISNU) untuk mengubah stok barang.");
-                  setShowUnlockModal(true);
-                  return;
-                }
                 setQuickStockProduct(p);
                 setQuickStockVal(p.stock);
               }}
@@ -1300,140 +1225,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: Buka Mode Pemilik (Kode: WISNU) */}
-      {showUnlockModal && (
-        <div
-          className="modal-backdrop"
-          onMouseDown={e => {
-            if (e.target === e.currentTarget) setShowUnlockModal(false);
-          }}
-        >
-          <div className="modal" style={{ maxWidth: 420 }}>
-            <div className="modal-head">
-              <div>
-                <p className="eyebrow">AKSES PEMILIK TOKO</p>
-                <h2>Buka Mode Pemilik</h2>
-                <p>Masukkan kode akses untuk mengisi transaksi dan stok barang.</p>
-              </div>
-              <button
-                className="icon-btn"
-                onClick={() => setShowUnlockModal(false)}
-                aria-label="Tutup"
-              >
-                <X size={17} />
-              </button>
-            </div>
-
-            <form
-              onSubmit={async e => {
-                e.preventDefault();
-                const trimmed = unlockCode.trim();
-                if (!trimmed) return;
-                setUnlocking(true);
-                setUnlockError("");
-                try {
-                  await authenticateOwnerApi(trimmed);
-                  setIsLocked(false);
-                  setShowUnlockModal(false);
-                  setNotice("Mode pemilik berhasil dibuka. Anda sekarang dapat mengisi transaksi dan stok barang.");
-                  await refresh();
-
-                  // Langsung masuk ke form yang dituju pengguna
-                  if (pendingAction === "addSale") {
-                    setShowAddSale(true);
-                  } else if (pendingAction === "dailyStock") {
-                    const draft: Record<string, number | ""> = {};
-                    const statusDraft: Record<string, string> = {};
-                    products.forEach(p => {
-                      draft[p.id] = p.stock;
-                      statusDraft[p.id] = p.status || (p.stock <= p.min_stock ? "Stok menipis" : "Stok aman");
-                    });
-                    setDailyStockDraft(draft);
-                    setDailyStatusDraft(statusDraft);
-                    setDailyStockDate(getTodayIsoDate());
-                    setShowDailyStockModal(true);
-                  } else if (pendingAction === "quickStock" && pendingProduct) {
-                    setQuickStockProduct(pendingProduct);
-                    setQuickStockVal(pendingProduct.stock);
-                  }
-                  setPendingAction(null);
-                  setPendingProduct(null);
-                } catch (err) {
-                  setUnlockError(err instanceof Error ? err.message : "Kode akses salah. Silakan coba lagi.");
-                } finally {
-                  setUnlocking(false);
-                }
-              }}
-              style={{ padding: "16px 20px 20px" }}
-            >
-              <div className="field-group" style={{ marginBottom: 16 }}>
-                <label className="field-label" style={{ fontWeight: 700, marginBottom: 8, display: "block" }}>
-                  Kode Akses Pemilik
-                </label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="text"
-                    className="field-input"
-                    placeholder="Contoh: WISNU"
-                    value={unlockCode}
-                    onChange={e => setUnlockCode(e.target.value)}
-                    autoFocus
-                    style={{
-                      fontSize: 16,
-                      letterSpacing: 2,
-                      textAlign: "center",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      flex: 1
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ whiteSpace: "nowrap", padding: "8px 12px", height: "auto" }}
-                    onClick={() => setUnlockCode("Masukan Kode Akses")}
-                    title="Gunakan kode Akses"
-                  >
-                    Gunakan Kode Akses
-                  </button>
-                </div>
-                <p style={{ fontSize: "11px", color: "#7a8a7c", marginTop: 6 }}>
-                  Petunjuk: Masukkan kode akses untuk mengaktifkan mode admin.
-                </p>
-              </div>
-
-              {unlockError && (
-                <div className="alert alert-error" style={{ marginBottom: 16, fontSize: "11.5px" }}>
-                  <AlertTriangle size={15} />
-                  <span>{unlockError}</span>
-                </div>
-              )}
-
-              <div className="modal-actions" style={{ padding: 0 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setShowUnlockModal(false);
-                    setPendingAction(null);
-                    setPendingProduct(null);
-                  }}
-                  disabled={unlocking}
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={unlocking || !unlockCode.trim()}
-                >
-                  {unlocking ? "Memverifikasi…" : "Buka Mode Pemilik & Lanjutkan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

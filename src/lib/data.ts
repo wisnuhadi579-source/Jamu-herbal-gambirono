@@ -1,7 +1,7 @@
 import type { Product, Sale, SaleItem } from "../types";
 
 export let currentRevision = 1;
-export let canEditState = false;
+export let canEditState = true;
 export let isSupabaseConfigured = true;
 
 let ownerToken: string | null = null;
@@ -264,12 +264,12 @@ export async function fetchStore(): Promise<{
       throw new Error(`HTTP ${res.status}`);
     }
     const data = await res.json();
-    canEditState = Boolean(data.canEdit);
+    canEditState = true;
     if (data.configured !== undefined) {
       isSupabaseConfigured = Boolean(data.configured);
     }
     const parsed = parseStateResponse(data.state, data.revision);
-    return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: canEditState };
+    return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: true };
   } catch (err) {
     console.warn("Gagal memuat data dari /api/store:", err);
     isSupabaseConfigured = false;
@@ -277,7 +277,7 @@ export async function fetchStore(): Promise<{
       products: [],
       sales: [],
       revision: currentRevision,
-      canEdit: canEditState
+      canEdit: true
     };
   }
 }
@@ -319,12 +319,12 @@ export async function sendStoreAction(action: string, payload: unknown): Promise
   }
 
   const data = await res.json();
-  canEditState = Boolean(data.canEdit);
+  canEditState = true;
   if (data.configured !== undefined) {
     isSupabaseConfigured = Boolean(data.configured);
   }
   const parsed = parseStateResponse(data.state, data.revision);
-  return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: canEditState };
+  return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: true };
 }
 
 /**
