@@ -19,6 +19,19 @@ const money = (n: number) =>
     maximumFractionDigits: 0
   }).format(n || 0);
 
+const parseRupiah = (val: string): number => {
+  if (!val) return 0;
+  // Hapus "Rp", titik (pemisah ribuan), spasi, dan koma desimal jika ada
+  const clean = val.replace(/Rp|[\s.]/g, "").replace(/,/g, ".");
+  return Math.floor(Number(clean)) || 0;
+};
+
+const formatRupiahInput = (val: string) => {
+  const num = parseRupiah(val);
+  if (num === 0 && val !== "0") return "";
+  return num.toLocaleString("id-ID");
+};
+
 const formatIndonesianDate = (d: Date = new Date()) => {
   try {
     return new Intl.DateTimeFormat("id-ID", {
@@ -1346,7 +1359,7 @@ function CatatPenjualanForm({
   onCancel?: () => void;
 }) {
   const [tanggal, setTanggal] = useState(() => editingSale ? getSaleDate(editingSale) : getTodayIsoDate());
-  const [amount, setAmount] = useState(() => editingSale ? String(editingSale.total) : "");
+  const [amount, setAmount] = useState(() => editingSale ? (editingSale.total || 0).toLocaleString("id-ID") : "");
   const [catatan, setCatatan] = useState(() => editingSale ? (editingSale.notes || editingSale.customer_name || "") : "");
   const [jamuTerjualMl, setJamuTerjualMl] = useState(() => editingSale ? String(editingSale.jamu_terjual_ml || 0) : "0");
   const [restokMl, setRestokMl] = useState(() => editingSale ? String(editingSale.restok_ml || 0) : "0");
@@ -1356,7 +1369,7 @@ function CatatPenjualanForm({
   useEffect(() => {
     if (editingSale) {
       setTanggal(getSaleDate(editingSale));
-      setAmount(String(editingSale.total));
+      setAmount((editingSale.total || 0).toLocaleString("id-ID"));
       setCatatan(editingSale.notes || editingSale.customer_name || "");
       setJamuTerjualMl(String(editingSale.jamu_terjual_ml || 0));
       setRestokMl(String(editingSale.restok_ml || 0));
@@ -1366,7 +1379,7 @@ function CatatPenjualanForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
-    const num = Number(amount);
+    const num = parseRupiah(amount);
     if (isNaN(num) || num < 0) {
       setFormError("Masukkan jumlah pendapatan yang valid (minimal 0).");
       return;
@@ -1438,12 +1451,11 @@ function CatatPenjualanForm({
           <div className="field-group">
             <label className="field-label">Pendapatan (Rp)</label>
             <input
-              type="number"
+              type="text"
               className="field-input"
               value={amount}
-              onChange={e => setAmount(e.target.value)}
-              placeholder="Contoh: 10000"
-              min="0"
+              onChange={e => setAmount(formatRupiahInput(e.target.value))}
+              placeholder="Contoh: 108.000"
               required
             />
           </div>

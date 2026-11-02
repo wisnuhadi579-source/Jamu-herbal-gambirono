@@ -188,13 +188,21 @@ export function applyAction(state, action, payload) {
         }
       };
 
-      const existingIndex = (next.transactions || []).findIndex(t => t.id === newTrx.id);
+      const existingIndex = (next.transactions || []).findIndex(t => 
+        t.tanggal === dateStr && 
+        t.status !== 'Batal' && 
+        t.status !== 'Dibatalkan'
+      );
+
       if (existingIndex >= 0) {
+        const existing = next.transactions[existingIndex];
         next.transactions[existingIndex] = {
-          ...next.transactions[existingIndex],
+          ...existing,
           ...newTrx,
-          created_at: next.transactions[existingIndex].created_at,
-          urutan: next.transactions[existingIndex].urutan
+          id: existing.id, // Keep the same ID
+          nomor: existing.nomor, // Keep the same invoice number if desired, or update it
+          created_at: existing.created_at,
+          urutan: existing.urutan
         };
       } else {
         next.transactions = [newTrx, ...(next.transactions || [])];
