@@ -299,6 +299,14 @@ export default function App() {
     return yesterdaySales.reduce((acc, s) => acc + Number(s.total || 0), 0);
   }, [sales, currentDate]);
 
+  const todayRevenue = useMemo(() => {
+    const todaySales = sales.filter(s => {
+      if (s.status === "Dibatalkan" || s.status === "Batal") return false;
+      return getSaleDate(s) === todayIso;
+    });
+    return todaySales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  }, [sales, todayIso]);
+
   const totalStockAll = useMemo(() => {
     return products.reduce((acc, p) => acc + Number(p.stock || 0), 0);
   }, [products]);
@@ -835,6 +843,7 @@ export default function App() {
                   sales={sales}
                   totalMonthRevenue={totalMonthRevenue}
                   yesterdayRevenue={yesterdayRevenue}
+                  todayRevenue={todayRevenue}
                   currentDate={currentDate}
                   onNavigate={setView}
                   onOpenCatatPenjualan={handleToggleAddSale}
@@ -1533,6 +1542,7 @@ function DashboardView({
   sales,
   totalMonthRevenue,
   yesterdayRevenue,
+  todayRevenue,
   currentDate,
   onNavigate,
   onOpenCatatPenjualan,
@@ -1544,6 +1554,7 @@ function DashboardView({
   sales: Sale[];
   totalMonthRevenue: number;
   yesterdayRevenue: number;
+  todayRevenue: number;
   currentDate: Date;
   onNavigate: (v: ViewName) => void;
   onOpenCatatPenjualan?: () => void;
@@ -1618,7 +1629,16 @@ function DashboardView({
       </section>
 
       {/* 2. Top Metric Cards (side-by-side) */}
-      <section className="metrics-row">
+      <section className="metrics-row" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+        <div className="metric-box" onClick={() => onNavigate("history")}>
+          <div className="metric-box-head">
+            <span>Pendapatan hari ini</span>
+            <ArrowUpRight size={14} className="metric-box-arrow" />
+          </div>
+          <div className="metric-box-value" style={{ color: "#166534" }}>{money(todayRevenue)}</div>
+          <div className="metric-box-sub">{formatIndonesianDate(currentDate)}</div>
+        </div>
+
         <div className="metric-box" onClick={() => onNavigate("reports")}>
           <div className="metric-box-head">
             <span>Total penjualan bulan ini</span>
@@ -1635,6 +1655,163 @@ function DashboardView({
           </div>
           <div className="metric-box-value">{money(yesterdayRevenue)}</div>
           <div className="metric-box-sub">Total pendapatan hari sebelumnya</div>
+        </div>
+      </section>
+
+      {/* Target & Bonus Section */}
+      <section className="panel" style={{ marginTop: "20px" }}>
+        <div className="panel-heading">
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ background: "#f0fdf4", color: "#16a34a", padding: "8px", borderRadius: "8px" }}>
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "16px", fontWeight: 700 }}>Target Penjualan & Bonus Karyawan</h2>
+              <p style={{ fontSize: "12px", color: "#627564" }}>Capai target harian dan bulanan untuk mendapatkan bonus spesial.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px", marginTop: "16px" }}>
+          {[
+            { monthly: 2000000, daily: 70000, bonus: 100000 },
+            { monthly: 3000000, daily: 100000, bonus: 200000 },
+            { monthly: 4000000, daily: 135000, bonus: 300000 },
+            // Add extra levels if current monthly is high
+            ...(totalMonthRevenue > 4000000 ? Array.from({ length: Math.floor((totalMonthRevenue - 4000000) / 1000000) + 1 }).map((_, i) => {
+              const m = 5000000 + (i * 1000000);
+              return {
+                monthly: m,
+                daily: 70000 + ((m - 2000000) / 1000000 * 35000),
+                bonus: 100000 + ((m - 2000000) / 1000000 * 100000)
+              };
+            }) : [])
+          ].map((t, idx) => {
+            const dailyReached = todayRevenue >= t.daily;
+            const monthlyReached = totalMonthRevenue >= t.monthly;
+            const diff = Math.max(0, t.daily - todayRevenue);
+            const monthlyProgress = Math.min(100, (totalMonthRevenue / t.monthly) * 100);
+
+            return (
+              <div key={idx} style={{ 
+                background: dailyReached ? "#dc2626" : "#ffffff", 
+                border: dailyReached ? "1px solid #991b1b" : "1px solid #e1e9df", 
+                borderRadius: "12px", 
+                padding: "20px",
+                boxShadow: dailyReached ? "0 10px 15px -3px rgba(220, 38, 38, 0.4)" : "0 1px 3px rgba(0,0,0,0.02)",
+                color: dailyReached ? "#ffffff" : "inherit",
+                transition: "all 0.3s ease",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <strong style={{ display: "block", fontSize: "11px", color: dailyReached ? "rgba(255,255,255,0.85)" : "#627564", textTransform: "uppercase", letterSpacing: "0.025em" }}>TARGET OMZET BULANAN</strong>
+                    <span style={{ fontSize: "18px", fontWeight: 800, color: dailyReached ? "#ffffff" : "#1f3323" }}>{money(t.monthly)}</span>
+                  </div>
+                  <span style={{ 
+                    padding: "6px 12px", 
+                    borderRadius: "20px", 
+                    fontSize: "11px", 
+                    fontWeight: 800,
+                    background: monthlyReached ? (dailyReached ? "rgba(255,255,255,0.2)" : "#dcfce7") : (dailyReached ? "rgba(255,255,255,0.15)" : "#f1f5f9"),
+                    color: monthlyReached ? (dailyReached ? "#ffffff" : "#166534") : (dailyReached ? "#ffffff" : "#64748b"),
+                    border: dailyReached ? "1px solid rgba(255,255,255,0.3)" : "none"
+                  }}>
+                    {monthlyReached ? "BONUS TERCAPAI" : "PROSES"}
+                  </span>
+                </div>
+
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "6px" }}>
+                    <span style={{ color: dailyReached ? "rgba(255,255,255,0.9)" : "#627564" }}>Progres Omzet Bulan Ini</span>
+                    <span style={{ fontWeight: 700 }}>{money(totalMonthRevenue)} / {money(t.monthly)}</span>
+                  </div>
+                  <div style={{ width: "100%", height: "8px", background: dailyReached ? "rgba(0,0,0,0.2)" : "#f1f5f9", borderRadius: "10px", overflow: "hidden" }}>
+                    <div style={{ width: `${monthlyProgress}%`, height: "100%", background: dailyReached ? "#ffffff" : "#22c55e", transition: "width 0.5s ease" }} />
+                  </div>
+                </div>
+
+                <div style={{ 
+                  padding: "16px", 
+                  background: dailyReached ? "rgba(0,0,0,0.2)" : "#f8faf7", 
+                  borderRadius: "10px", 
+                  border: dailyReached ? "1px solid rgba(255,255,255,0.15)" : "1px solid #e7eee5" 
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <span style={{ display: "block", fontSize: "10px", color: dailyReached ? "rgba(255,255,255,0.8)" : "#627564", fontWeight: 600 }}>Target Minimal Harian</span>
+                      <strong style={{ fontSize: "14px", fontWeight: 800 }}>{money(t.daily)}</strong>
+                    </div>
+                    <span style={{ 
+                      padding: "6px 12px", 
+                      borderRadius: "8px", 
+                      fontSize: "11px", 
+                      fontWeight: 900,
+                      background: dailyReached ? "#ffffff" : "#fef2f2",
+                      color: dailyReached ? "#dc2626" : "#b91c1c",
+                      boxShadow: dailyReached ? "0 4px 6px -1px rgba(0, 0, 0, 0.1)" : "none"
+                    }}>
+                      {dailyReached ? "TERCAPAI" : "BELUM TERCAPAI"}
+                    </span>
+                  </div>
+                  {!dailyReached && (
+                    <p style={{ fontSize: "11px", color: "#b91c1c", marginTop: "8px", display: "flex", alignItems: "center", gap: "6px", fontWeight: 500 }}>
+                      <AlertTriangle size={13} /> Kurang {money(diff)} lagi hari ini
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                  <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: dailyReached ? "#ffffff" : "#16a34a", boxShadow: dailyReached ? "0 0 8px rgba(255,255,255,0.5)" : "none" }} />
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: dailyReached ? "#ffffff" : "#1f3323" }}>
+                    Bonus Karyawan: <strong style={{ fontSize: "14px" }}>{money(t.bonus)}</strong>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Motivation Card */}
+      <section style={{ 
+        marginTop: "20px", 
+        background: "linear-gradient(135deg, #1f3323 0%, #2d4a34 100%)", 
+        borderRadius: "16px", 
+        padding: "24px",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        gap: "24px",
+        position: "relative",
+        overflow: "hidden"
+      }}>
+        <div style={{ 
+          background: "rgba(255,255,255,0.1)", 
+          padding: "16px", 
+          borderRadius: "12px",
+          backdropFilter: "blur(4px)"
+        }}>
+          <ArrowUpRight size={32} style={{ transform: "rotate(45deg)" }} />
+        </div>
+        <div style={{ flex: 1, zIndex: 1 }}>
+          <h3 style={{ fontSize: "18px", fontWeight: 800, marginBottom: "4px", display: "flex", alignItems: "center", gap: "8px" }}>
+            AYO TINGKATKAN PENJUALAN!
+          </h3>
+          <p style={{ fontSize: "14px", opacity: 0.9, lineHeight: 1.5, maxWidth: "600px" }}>
+            Promosikan produk ke sosial media (WhatsApp, Facebook, Instagram, dan TikTok) untuk meningkatkan penjualan, mencapai target, dan mendapatkan bonus.
+          </p>
+        </div>
+        <div style={{ 
+          position: "absolute", 
+          right: "-20px", 
+          bottom: "-20px", 
+          opacity: 0.1,
+          transform: "rotate(-15deg)"
+        }}>
+          <Sprout size={160} />
         </div>
       </section>
 
