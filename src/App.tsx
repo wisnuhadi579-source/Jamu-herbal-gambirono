@@ -10,7 +10,7 @@ import {
   getProducts, getSales, saveProduct, fetchStore,
   recordStocktake, isSupabaseConfigured
 } from "./lib/data";
-import type { Product, Sale, ViewName } from "./types";
+import type { Product, Sale, ViewName, StockMutation } from "./types";
 
 const money = (n: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -138,8 +138,7 @@ const PRODUCT_ORDER = [
   "PB",
   "PLS",
   "DRT",
-  "KCM",
-  "ML"
+  "KCM"
 ];
 
 function sortProductsByOrder(prods: Product[]): Product[] {
@@ -169,9 +168,10 @@ const nav: { id: ViewName; label: string; icon: typeof LayoutDashboard }[] = [
 
 export default function App() {
   const [view, setView] = useState<ViewName>("dashboard");
-  const [products, setProducts] = useState<Product[]>(demoProducts);
-  const [sales, setSales] = useState<Sale[]>(demoSales);
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
@@ -186,7 +186,7 @@ export default function App() {
     name: "",
     sku: "",
     category: "Jamu Cair",
-    unit: "BOTOL",
+    unit: "ml",
     buy_price: "5000",
     sell_price: "8000",
     stock: "10",
@@ -222,8 +222,10 @@ export default function App() {
     return formatIndonesianDate(currentDate);
   }, [currentDate]);
 
-  // Transaction detail modal
+  // Transaction detail & edit modal
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [dailyStocks, setDailyStocks] = useState<any[]>([]);
 
   // Cart & POS
   const [cart, setCart] = useState<{ product_id: string; qty: number; unit_price: number }[]>([]);
@@ -232,6 +234,8 @@ export default function App() {
   const [saleNotes, setSaleNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [stockMutations, setStockMutations] = useState<StockMutation[]>([]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -239,6 +243,14 @@ export default function App() {
       const store = await fetchStore();
       setProducts(sortProductsByOrder(store.products));
       setSales(store.sales);
+      if (store.stockMutations) {
+        setStockMutations(store.stockMutations);
+      }
+      if (store.stockEntries) {
+        setDailyStocks(store.stockEntries);
+      }
+
+      setLoaded(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Data gagal dimuat.");
     } finally {
@@ -269,6 +281,10 @@ export default function App() {
     });
     return yesterdaySales.reduce((acc, s) => acc + Number(s.total || 0), 0);
   }, [sales, currentDate]);
+
+  const totalStockAll = useMemo(() => {
+    return products.reduce((acc, p) => acc + Number(p.stock || 0), 0);
+  }, [products]);
 
   const lowStock = products.filter(p => p.stock <= p.min_stock);
   const filteredProducts = sortProductsByOrder(
@@ -310,11 +326,11 @@ export default function App() {
       name: "",
       sku: "",
       category: "Jamu Cair",
-      unit: "BOTOL",
+      unit: "ml",
       buy_price: "5000",
       sell_price: "8000",
-      stock: "10",
-      min_stock: "3"
+      stock: "1000",
+      min_stock: "200"
     });
     setShowProductForm(true);
   };
@@ -430,20 +446,20 @@ export default function App() {
 
   const handleSetup14Variants = async () => {
     const standardVariants = [
-      { sku: "H", name: "Habba", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 10, min_stock: 3 },
-      { sku: "KS", name: "Kunyit Sirih", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 12, min_stock: 3 },
-      { sku: "SS", name: "Sirih Sereh", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 4, min_stock: 2 },
-      { sku: "SP", name: "Sambiloto Pahit", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 10, min_stock: 3 },
-      { sku: "M", name: "Mengkudu", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 7, min_stock: 2 },
-      { sku: "K", name: "Kencur", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 4, min_stock: 2 },
-      { sku: "O", name: "Olahan Temulawak", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 14, min_stock: 3 },
-      { sku: "P", name: "Pahit", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 3, min_stock: 2 },
-      { sku: "B", name: "Beras Kencur", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 3, min_stock: 2 },
-      { sku: "HJ", name: "Herbal Jahe", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 7, min_stock: 2 },
-      { sku: "PB", name: "Paitan Bersih", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 5, min_stock: 2 },
-      { sku: "PLS", name: "Pegal Linu Super", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 3, min_stock: 2 },
-      { sku: "DRT", name: "Darah Tinggi", unit: "BOTOL", buy_price: 7000, sell_price: 10000, stock: 3, min_stock: 2 },
-      { sku: "KCM", name: "Kencing Manis", unit: "BOTOL", buy_price: 7000, sell_price: 10000, stock: 2, min_stock: 2 }
+      { id: "prod-1793547155241", sku: "H", name: "Asam Urat Khusus Diabetes", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 3000, min_stock: 2000 },
+      { id: "prod-1793547155456", sku: "KS", name: "Kesemutan", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 2000 },
+      { id: "prod-1793547155627", sku: "SS", name: "Sesak Nafas", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 2000 },
+      { id: "prod-1793547155763", sku: "SP", name: "Spesial", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 2000 },
+      { id: "prod-1793547155912", sku: "M", name: "Nyeri / Sakit Kepala", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156043", sku: "K", name: "Kolesterol", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156183", sku: "O", name: "Sakit Pinggang", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156298", sku: "P", name: "Asam Urat", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156431", sku: "B", name: "Pegelinu", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156547", sku: "HJ", name: "Flu Batuk", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156679", sku: "PB", name: "Lambung", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156814", sku: "PLS", name: "Pelangsing", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547156935", sku: "DRT", name: "Darah Tinggi", unit: "ml", buy_price: 7000, sell_price: 10000, stock: 0, min_stock: 1000 },
+      { id: "prod-1793547157054", sku: "KCM", name: "Kencing Manis", unit: "ml", buy_price: 7000, sell_price: 10000, stock: 0, min_stock: 1000 }
     ];
 
     setSaving(true);
@@ -529,12 +545,14 @@ export default function App() {
             ])
           ]
         : [
-            ["Invoice", "Tanggal", "Keterangan/Pelanggan", "Pembayaran", "Status", "Total"],
+            ["Invoice", "Tanggal", "Keterangan/Pelanggan", "Pembayaran", "Jamu Terjual (ml)", "Restok (ml)", "Status", "Total"],
             ...sales.map(s => [
               s.invoice_no,
               s.created_at,
               s.customer_name ?? "",
               s.payment_method,
+              s.jamu_terjual_ml ?? 0,
+              s.restok_ml ?? 0,
               s.status ?? "Tercatat",
               s.total
             ])
@@ -700,7 +718,7 @@ export default function App() {
                 <p className="eyebrow">CATATAN USAHA</p>
                 <h1>Stok jamu herbal</h1>
                 <p className="subtitle">
-                  Catat jumlah stok yang tersedia dalam BOTOL. Penjualan tidak mengubah stok.
+                  Catat jumlah stok fisik jamu yang tersedia dalam mililiter (ml). Rekonsiliasi stok akan membandingkan sisa fisik dengan volume penjualan.
                 </p>
               </div>
               <button
@@ -778,78 +796,97 @@ export default function App() {
             </div>
           )}
 
-          {/* VIEW: DASHBOARD (RINGKASAN) */}
-          {view === "dashboard" && (
-            <DashboardView
-              products={products}
-              sales={sales}
-              totalMonthRevenue={totalMonthRevenue}
-              yesterdayRevenue={yesterdayRevenue}
-              currentDate={currentDate}
-              onNavigate={setView}
-              onOpenCatatPenjualan={handleToggleAddSale}
-              onQuickEditStock={p => {
-                setQuickStockProduct(p);
-                setQuickStockVal(p.stock);
-              }}
-              onOpenDailyStock={handleOpenDailyStock}
-              onViewSaleDetail={setSelectedSale}
-            />
-          )}
-
-          {/* VIEW: INVENTORY */}
-          {view === "inventory" && (
-            <InventoryView
-              products={products}
-              onSetupVariants={handleSetup14Variants}
-              onAddVariant={openNewProduct}
-              onEdit={openEditProduct}
-            />
-          )}
-
-          {/* VIEW: SALES FALLBACK */}
-          {view === "sales" && !showAddSale && (
-            <div className="catat-penjualan-container">
-              <CatatPenjualanForm
-                onSuccess={msg => {
-                  setNotice(msg);
-                  setView("history");
-                  void refresh();
-                }}
-                onCancel={() => setView("dashboard")}
-              />
+          {error && !loaded ? (
+            <div className="empty-state" style={{ padding: "80px 20px", textAlign: "center" }}>
+              <div style={{ color: "#b91c1c", marginBottom: 16 }}>
+                <AlertTriangle size={48} style={{ margin: "0 auto" }} />
+              </div>
+              <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#1f3323", marginBottom: 8 }}>Gagal memuat data</h2>
+              <p style={{ color: "#627564", maxWidth: 400, margin: "0 auto 24px" }}>
+                Terjadi kendala saat menghubungi server database. {error}
+              </p>
+              <button className="btn btn-primary" onClick={() => void refresh()}>
+                <RefreshCw size={15} /> Coba lagi
+              </button>
             </div>
-          )}
+          ) : (
+            <>
+              {/* VIEW: DASHBOARD (RINGKASAN) */}
+              {view === "dashboard" && (
+                <DashboardView
+                  products={products}
+                  sales={sales}
+                  totalMonthRevenue={totalMonthRevenue}
+                  yesterdayRevenue={yesterdayRevenue}
+                  currentDate={currentDate}
+                  onNavigate={setView}
+                  onOpenCatatPenjualan={handleToggleAddSale}
+                  onQuickEditStock={p => {
+                    setQuickStockProduct(p);
+                    setQuickStockVal(p.stock);
+                  }}
+                  onOpenDailyStock={handleOpenDailyStock}
+                  onViewSaleDetail={setSelectedSale}
+                />
+              )}
 
-          {/* VIEW: HISTORY */}
-          {view === "history" && (
-            <HistoryView
-              sales={filteredSales}
-              search={search}
-              setSearch={setSearch}
-              filterDate={historyDateFilter}
-              setFilterDate={setHistoryDateFilter}
-              onViewDetail={setSelectedSale}
-            />
-          )}
+              {/* VIEW: INVENTORY */}
+              {view === "inventory" && (
+                <InventoryView
+                  products={products}
+                  stockMutations={stockMutations}
+                  onAddVariant={openNewProduct}
+                  onEdit={openEditProduct}
+                />
+              )}
 
-          {/* VIEW: REPORTS */}
-          {view === "reports" && (
-            <ReportsView
-              sales={sales}
-              onExport={exportCsv}
-              onViewDetail={setSelectedSale}
-            />
-          )}
+              {/* VIEW: SALES FALLBACK */}
+              {view === "sales" && !showAddSale && (
+                <div className="catat-penjualan-container">
+                  <CatatPenjualanForm
+                    onSuccess={msg => {
+                      setNotice(msg);
+                      setView("history");
+                      void refresh();
+                    }}
+                    onCancel={() => setView("dashboard")}
+                  />
+                </div>
+              )}
 
-          {/* VIEW: SETTINGS */}
-          {view === "settings" && (
-            <SettingsPageView
-              onExport={exportCsv}
-              products={products}
-              sales={sales}
-              configured={isSupabaseConfigured}
-            />
+              {/* VIEW: HISTORY */}
+              {view === "history" && (
+                <HistoryView
+                  sales={filteredSales}
+                  search={search}
+                  setSearch={setSearch}
+                  filterDate={historyDateFilter}
+                  setFilterDate={setHistoryDateFilter}
+                  onViewDetail={setSelectedSale}
+                />
+              )}
+
+              {/* VIEW: REPORTS */}
+              {view === "reports" && (
+                <ReportsView
+                  sales={sales}
+                  dailyStocks={dailyStocks}
+                  products={products}
+                  onExport={exportCsv}
+                  onViewDetail={setSelectedSale}
+                />
+              )}
+
+              {/* VIEW: SETTINGS */}
+              {view === "settings" && (
+                <SettingsPageView
+                  onExport={exportCsv}
+                  products={products}
+                  sales={sales}
+                  configured={isSupabaseConfigured}
+                />
+              )}
+            </>
           )}
         </section>
 
@@ -979,7 +1016,7 @@ export default function App() {
               </div>
 
               <p className="daily-stock-instruction">
-                Isi sisa stok aktual setiap varian. Kosongkan untuk melewati varian; masukkan 0 jika habis. Satuan default: BOTOL. Masukkan jumlah botol yang tersedia.
+                Isi sisa stok fisik aktual setiap varian dalam mililiter (ml). Kosongkan untuk melewati varian; masukkan 0 jika habis.
               </p>
 
               <div className="daily-stock-grid">
@@ -1082,6 +1119,14 @@ export default function App() {
                 <span style={{ color: "#7a887b" }}>Status Transaksi</span>
                 <span className="trx-status-pill">{selectedSale.status || "Tercatat"}</span>
               </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Jamu Terjual (ml)</span>
+                <strong>{(selectedSale.jamu_terjual_ml || 0).toLocaleString("id-ID")} ml</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Restok / Kulakan (ml)</span>
+                <strong>{(selectedSale.restok_ml || 0).toLocaleString("id-ID")} ml</strong>
+              </div>
               {selectedSale.notes && (
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: "12px" }}>
                   <span style={{ color: "#7a887b" }}>Catatan</span>
@@ -1094,7 +1139,48 @@ export default function App() {
               </div>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions" style={{ display: "flex", justifyContent: "space-between", gap: 10, width: "100%" }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                {selectedSale.status !== "Dibatalkan" && selectedSale.status !== "Batal" && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        const saleToEdit = selectedSale;
+                        setSelectedSale(null);
+                        setEditingSale(saleToEdit);
+                        setShowAddSale(true);
+                      }}
+                    >
+                      Ubah Transaksi
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ color: "#b91c1c", borderColor: "#fca5a5" }}
+                      onClick={async () => {
+                        if (window.confirm(`Batalkan transaksi ${selectedSale.invoice_no}?`)) {
+                          try {
+                            await createSale({
+                              ...selectedSale,
+                              date: getSaleDate(selectedSale),
+                              status: "Dibatalkan"
+                            });
+                            setSelectedSale(null);
+                            setNotice(`Transaksi ${selectedSale.invoice_no} dibatalkan.`);
+                            await refresh();
+                          } catch (err) {
+                            setError(err instanceof Error ? err.message : "Gagal membatalkan transaksi.");
+                          }
+                        }
+                      }}
+                    >
+                      Batalkan Transaksi
+                    </button>
+                  </>
+                )}
+              </div>
               <button
                 type="button"
                 className="btn btn-primary"
@@ -1245,40 +1331,68 @@ function pageDescription(view: ViewName) {
    ========================================================================= */
 
 function CatatPenjualanForm({
+  editingSale,
   onSuccess,
   onCancel
 }: {
+  editingSale?: Sale | null;
   onSuccess: (msg: string) => void;
   onCancel?: () => void;
 }) {
-  const [tanggal, setTanggal] = useState(() => getTodayIsoDate());
-  const [amount, setAmount] = useState("");
-  const [catatan, setCatatan] = useState("");
+  const [tanggal, setTanggal] = useState(() => editingSale ? getSaleDate(editingSale) : getTodayIsoDate());
+  const [amount, setAmount] = useState(() => editingSale ? String(editingSale.total) : "");
+  const [catatan, setCatatan] = useState(() => editingSale ? (editingSale.notes || editingSale.customer_name || "") : "");
+  const [jamuTerjualMl, setJamuTerjualMl] = useState(() => editingSale ? String(editingSale.jamu_terjual_ml || 0) : "0");
+  const [restokMl, setRestokMl] = useState(() => editingSale ? String(editingSale.restok_ml || 0) : "0");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (editingSale) {
+      setTanggal(getSaleDate(editingSale));
+      setAmount(String(editingSale.total));
+      setCatatan(editingSale.notes || editingSale.customer_name || "");
+      setJamuTerjualMl(String(editingSale.jamu_terjual_ml || 0));
+      setRestokMl(String(editingSale.restok_ml || 0));
+    }
+  }, [editingSale]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
     const num = Number(amount);
-    if (isNaN(num) || num <= 0) {
-      setFormError("Masukkan jumlah pendapatan yang valid (lebih dari 0).");
+    if (isNaN(num) || num < 0) {
+      setFormError("Masukkan jumlah pendapatan yang valid (minimal 0).");
       return;
     }
+    const jamuVal = Math.max(0, Number(jamuTerjualMl) || 0);
+    const restokVal = Math.max(0, Number(restokMl) || 0);
+
     setSaving(true);
     try {
       await createSale({
+        ...(editingSale ? { id: editingSale.id } : {}),
         total: num,
         date: tanggal,
         tanggal: tanggal,
         customer_name: catatan.trim() || "Pendapatan jamu",
         notes: catatan.trim() || "Pendapatan transaksi jamu",
-        payment_method: "Tunai",
+        payment_method: editingSale ? editingSale.payment_method : "Tunai",
+        jamu_terjual_ml: jamuVal,
+        restok_ml: restokVal,
         items: []
       });
-      setAmount("");
-      setCatatan("");
-      onSuccess(`Pendapatan transaksi sebesar ${money(num)} berhasil dicatat.`);
+      if (!editingSale) {
+        setAmount("");
+        setCatatan("");
+        setJamuTerjualMl("0");
+        setRestokMl("0");
+      }
+      onSuccess(
+        editingSale
+          ? `Transaksi ${editingSale.invoice_no} berhasil diperbarui.`
+          : `Pendapatan transaksi sebesar ${money(num)} berhasil dicatat.`
+      );
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal menyimpan pendapatan.");
     } finally {
@@ -1290,9 +1404,9 @@ function CatatPenjualanForm({
     <div className="catat-penjualan-card">
       <div className="catat-penjualan-header">
         <p className="eyebrow">CATATAN USAHA</p>
-        <h2>Catat penjualan</h2>
+        <h2>{editingSale ? "Edit transaksi" : "Catat penjualan"}</h2>
         <p className="subtitle">
-          Catat pendapatan transaksi jamu. Tidak perlu memasukkan campuran varian.
+          Catat pendapatan transaksi jamu, volume jamu terjual (ml), dan catatan restok/kulakan.
         </p>
       </div>
 
@@ -1304,7 +1418,7 @@ function CatatPenjualanForm({
       )}
 
       <form onSubmit={handleSubmit}>
-        <div className="catat-form-grid">
+        <div className="catat-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="field-group">
             <label className="field-label">Tanggal transaksi</label>
             <input
@@ -1323,28 +1437,52 @@ function CatatPenjualanForm({
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="Contoh: 10000"
-              min="1"
+              min="0"
+              required
+            />
+          </div>
+          <div className="field-group">
+            <label className="field-label">Jamu terjual (ml)</label>
+            <input
+              type="number"
+              className="field-input"
+              value={jamuTerjualMl}
+              onChange={e => setJamuTerjualMl(e.target.value)}
+              placeholder="0"
+              min="0"
+              required
+            />
+          </div>
+          <div className="field-group">
+            <label className="field-label">Restok / kulakan (ml)</label>
+            <input
+              type="number"
+              className="field-input"
+              value={restokMl}
+              onChange={e => setRestokMl(e.target.value)}
+              placeholder="0"
+              min="0"
               required
             />
           </div>
         </div>
 
-        <div className="field-group" style={{ marginTop: 16 }}>
+        <div className="field-group" style={{ marginTop: 12 }}>
           <label className="field-label">Catatan (opsional)</label>
           <input
             type="text"
             className="field-input"
             value={catatan}
             onChange={e => setCatatan(e.target.value)}
-            placeholder="Contoh: Jamu campur 200 ml"
+            placeholder="Contoh: Jamu campur 200 ml / kulakan 2000 ml"
           />
         </div>
 
-        <div className="catat-info-notice">
-          Stok tidak berkurang saat transaksi disimpan. Perbarui sisa stok melalui menu Barang & stok.
+        <div className="catat-info-notice" style={{ marginTop: 12, fontSize: "11px", color: "#4f6052", background: "#f2f7f1", padding: "10px 12px", borderRadius: 6, border: "1px solid #dbe6da", lineHeight: 1.4 }}>
+          <strong>Petunjuk Restok:</strong> Restok tidak boleh tercatat ganda. Jika terdapat beberapa transaksi dalam sehari, masukkan nilai restok (ml) hanya pada transaksi yang benar-benar mencatat kejadian kulakan tersebut.
         </div>
 
-        <div className="catat-form-actions">
+        <div className="catat-form-actions" style={{ marginTop: 16, display: "flex", justifyContent: "flex-end", gap: 10 }}>
           {onCancel && (
             <button
               type="button"
@@ -1360,7 +1498,7 @@ function CatatPenjualanForm({
             className="btn-simpan-pendapatan"
             disabled={saving}
           >
-            {saving ? "Menyimpan…" : "Simpan pendapatan"}
+            {saving ? "Menyimpan…" : (editingSale ? "Simpan Perubahan" : "Simpan pendapatan")}
           </button>
         </div>
       </form>
@@ -1601,7 +1739,7 @@ function DashboardView({
               </div>
               <div className="action-item-text">
                 <strong>Kelola barang</strong>
-                <small>Isi sisa stok dalam BOTOL</small>
+                <small>Isi sisa stok fisik (ml)</small>
               </div>
               <ArrowUpRight size={15} className="action-item-arrow" />
             </button>
@@ -1706,25 +1844,79 @@ function DashboardView({
 
 function InventoryView({
   products,
-  onSetupVariants,
+  stockMutations = [],
   onAddVariant,
   onEdit
 }: {
   products: Product[];
-  onSetupVariants: () => void;
+  stockMutations?: StockMutation[];
   onAddVariant: () => void;
   onEdit: (p: Product) => void;
 }) {
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyDate, setHistoryDate] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMutation, setSelectedMutation] = useState<StockMutation | null>(null);
+  const pageSize = 10;
+
+  const totalStockAll = useMemo(() => {
+    return products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
+  }, [products]);
+
+  // Product mapping for fast lookup
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>();
+    products.forEach(p => {
+      map.set(p.id, p);
+      if (p.sku) map.set(p.sku, p);
+      if (p.code) map.set(p.code, p);
+    });
+    return map;
+  }, [products]);
+
+  // Filter and sort mutations
+  const filteredMutations = useMemo(() => {
+    return stockMutations.filter(m => {
+      const p = productMap.get(m.produk_id) || productMap.get(m.productId || "");
+      const pName = p ? p.name : "";
+      const pCode = p ? (p.sku || p.code || "") : "";
+      const searchKey = `${m.produk_id} ${pName} ${pCode} ${m.catatan || ""} ${m.jenis || ""}`.toLowerCase();
+      
+      const matchesSearch = !historySearch || searchKey.includes(historySearch.toLowerCase().trim());
+      const matchesDate = !historyDate || m.tanggal === historyDate;
+
+      return matchesSearch && matchesDate;
+    });
+  }, [stockMutations, productMap, historySearch, historyDate]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [historySearch, historyDate]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMutations.length / pageSize));
+  const paginatedMutations = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMutations.slice(start, start + pageSize);
+  }, [filteredMutations, currentPage, pageSize]);
+
   return (
     <section className="inventory-panel">
-      <div className="inventory-actions-bar">
-        <button
-          type="button"
-          className="btn-variant-pill"
-          onClick={onSetupVariants}
-        >
-          Siapkan 14 varian jamu
-        </button>
+      {/* 1. Ringkasan Total Stok Card */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f3f8f2", border: "1px solid #d5e4d3", padding: "16px 20px", borderRadius: 10, marginBottom: 18 }}>
+        <div>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "#325338", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL STOK JAMU (ML)</span>
+          <p style={{ fontSize: "11.5px", color: "#617563", margin: "3px 0 0" }}>Total keseluruhan stok fisik jamu herbal saat ini</p>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <strong style={{ fontSize: "24px", color: "#1f4a2b", fontWeight: 800 }}>
+            {totalStockAll.toLocaleString("id-ID")} ml
+          </strong>
+        </div>
+      </div>
+
+      {/* 2. Actions Bar (Hanya + Tambah varian) */}
+      <div className="inventory-actions-bar" style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
         <button
           type="button"
           className="btn-variant-pill"
@@ -1734,13 +1926,14 @@ function InventoryView({
         </button>
       </div>
 
+      {/* 3. Product Stock Cards Grid */}
       <div className="inventory-stock-grid">
         {sortProductsByOrder(products).map(p => {
           const isWarning = p.stock <= p.min_stock;
           const statusText = p.status || (isWarning ? "Stok menipis" : "Stok aman");
           const statusClass = statusText.toLowerCase().includes("menipis") || isWarning ? "warning" : "safe";
           const displayCode = p.sku || p.code || p.name;
-          const displayDate = p.last_updated || "26 Okt 2026";
+          const displayDate = p.last_updated || "Belum ada input";
 
           return (
             <div key={p.id} className={`inv-stock-card ${statusClass}`}>
@@ -1759,7 +1952,7 @@ function InventoryView({
                 </span>
               </div>
               <div className="inv-card-body">
-                <span className="inv-card-qty">{p.stock}</span>
+                <span className="inv-card-qty">{p.stock.toLocaleString("id-ID")}</span>
                 <span className="inv-card-unit">{p.unit}</span>
               </div>
               <div className="inv-card-footer">
@@ -1776,6 +1969,266 @@ function InventoryView({
           );
         })}
       </div>
+
+      {/* 4. Tabel Riwayat Update Stok */}
+      <div className="panel" style={{ marginTop: 28 }}>
+        <div className="panel-heading" style={{ marginBottom: 16 }}>
+          <div>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1f3323" }}>Riwayat Update Stok</h2>
+            <p style={{ fontSize: "12px", color: "#627564", margin: "2px 0 0" }}>Pencatatan riwayat setiap perubahan dan penyesuaian stok harian jamu herbal</p>
+          </div>
+        </div>
+
+        <div className="toolbar" style={{ marginBottom: 16 }}>
+          <div className="toolbar-filters">
+            <div className="searchbox" style={{ flex: 1, maxWidth: 400 }}>
+              <Search size={16} />
+              <input
+                value={historySearch}
+                onChange={e => setHistorySearch(e.target.value)}
+                placeholder="Cari kode atau nama produk…"
+              />
+            </div>
+            <input
+              type="date"
+              className="toolbar-date-input"
+              value={historyDate}
+              onChange={e => setHistoryDate(e.target.value)}
+              title="Filter tanggal update stok"
+            />
+            {historyDate && (
+              <button
+                type="button"
+                className="toolbar-btn"
+                onClick={() => setHistoryDate("")}
+              >
+                Semua tanggal
+              </button>
+            )}
+          </div>
+          <span style={{ fontSize: "11.5px", color: "#596e5c", fontWeight: 600, whiteSpace: "nowrap" }}>
+            Menampilkan {paginatedMutations.length} dari {filteredMutations.length} riwayat update stok
+          </span>
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 40 }}>#</th>
+                <th>TANGGAL UPDATE</th>
+                <th>WAKTU UPDATE</th>
+                <th>NAMA PRODUK</th>
+                <th style={{ textAlign: "right" }}>STOK SEBELUMNYA</th>
+                <th style={{ textAlign: "right" }}>STOK TERBARU</th>
+                <th style={{ textAlign: "center" }}>PERUBAHAN STOK</th>
+                <th>JENIS PERUBAHAN</th>
+                <th>KETERANGAN</th>
+                <th style={{ textAlign: "right" }}>AKSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedMutations.length > 0 ? (
+                paginatedMutations.map((m, idx) => {
+                  const p = productMap.get(m.produk_id) || productMap.get(m.productId || "");
+                  const prodName = p ? p.name : (m.produk_id || "Produk");
+                  const prodCode = p ? (p.sku || p.code || "") : "";
+
+                  let dateStr = m.tanggal;
+                  let timeStr = "12:00:00 WIB";
+
+                  try {
+                    const dt = new Date(m.created_at || `${m.tanggal}T12:00:00Z`);
+                    if (!isNaN(dt.getTime())) {
+                      dateStr = new Intl.DateTimeFormat("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      }).format(dt);
+
+                      timeStr = new Intl.DateTimeFormat("id-ID", {
+                        timeZone: "Asia/Jakarta",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: false
+                      }).format(dt) + " WIB";
+                    }
+                  } catch {
+                    // ignore
+                  }
+
+                  const delta = m.perubahan !== undefined ? m.perubahan : (m.stok_terbaru - m.stok_sebelumnya);
+
+                  return (
+                    <tr key={m.id || idx}>
+                      <td style={{ fontSize: "11px", color: "#8a968b" }}>{(currentPage - 1) * pageSize + idx + 1}</td>
+                      <td style={{ fontWeight: 600, fontSize: "12px", color: "#253628" }}>{dateStr}</td>
+                      <td style={{ fontSize: "11px", color: "#617363" }}>{timeStr}</td>
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span className="inv-status-pill safe" style={{ padding: "2px 6px", fontSize: "10px" }}>
+                            {prodCode || "JH"}
+                          </span>
+                          <strong style={{ fontSize: "12px", color: "#1f3323" }}>{prodName}</strong>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right", fontSize: "12px" }}>
+                        {(m.stok_sebelumnya || 0).toLocaleString("id-ID")} ml
+                      </td>
+                      <td style={{ textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#1f4a2b" }}>
+                        {(m.stok_terbaru || 0).toLocaleString("id-ID")} ml
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            borderRadius: 6,
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            background: delta > 0 ? "#eaf6ea" : delta < 0 ? "#fde8e8" : "#f1f5f1",
+                            color: delta > 0 ? "#1b6928" : delta < 0 ? "#b91c1c" : "#4f6052"
+                          }}
+                        >
+                          {delta > 0 ? `+${delta.toLocaleString("id-ID")} ml` : `${delta.toLocaleString("id-ID")} ml`}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="trx-status-pill" style={{ background: "#f2f7f1", border: "1px solid #d8e5d7", color: "#2c4832" }}>
+                          {m.jenis || "Stok Harian"}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: "11.5px", color: "#516353", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {m.catatan || "Update stok"}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          type="button"
+                          className="trx-detail-btn"
+                          onClick={() => setSelectedMutation(m)}
+                        >
+                          Detail ↗
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: "center", padding: "28px", color: "#7a8a7c", fontSize: "12px" }}>
+                    Belum ada riwayat update stok yang sesuai filter.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 12, borderTop: "1px solid #e3ebe2" }}>
+            <span style={{ fontSize: "12px", color: "#617363" }}>
+              Halaman {currentPage} dari {totalPages}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: "5px 12px", fontSize: "12px" }}
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                ← Sebelumnya
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: "5px 12px", fontSize: "12px" }}
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                Selanjutnya →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal Detail Mutasi Stok */}
+      {selectedMutation && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={e => {
+            if (e.target === e.currentTarget) setSelectedMutation(null);
+          }}
+        >
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">DETAIL UPDATE STOK</p>
+                <h2>
+                  {(productMap.get(selectedMutation.produk_id) || productMap.get(selectedMutation.productId || ""))?.name || selectedMutation.produk_id}
+                </h2>
+                <p>
+                  {selectedMutation.tanggal} · {selectedMutation.jenis || "Stok Harian"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setSelectedMutation(null)}
+                aria-label="Tutup"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div style={{ background: "#f8faf7", border: "1px solid #e7eee5", borderRadius: 8, padding: 16, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Waktu Pencatatan</span>
+                <strong>
+                  {new Date(selectedMutation.created_at || `${selectedMutation.tanggal}T12:00:00Z`).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium", timeZone: "Asia/Jakarta" })}
+                </strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Stok Sebelumnya</span>
+                <span>{(selectedMutation.stok_sebelumnya || 0).toLocaleString("id-ID")} ml</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Stok Terbaru</span>
+                <strong style={{ color: "#1f4a2b" }}>{(selectedMutation.stok_terbaru || 0).toLocaleString("id-ID")} ml</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Perubahan Stok</span>
+                <strong style={{ color: (selectedMutation.perubahan || 0) >= 0 ? "#1b6928" : "#b91c1c" }}>
+                  {(selectedMutation.perubahan || 0) >= 0 ? `+${(selectedMutation.perubahan || 0).toLocaleString("id-ID")} ml` : `${(selectedMutation.perubahan || 0).toLocaleString("id-ID")} ml`}
+                </strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
+                <span style={{ color: "#7a887b" }}>Jenis Perubahan</span>
+                <span className="trx-status-pill">{selectedMutation.jenis || "Stok Harian"}</span>
+              </div>
+              {selectedMutation.catatan && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid #e1e9df", fontSize: "12px" }}>
+                  <span style={{ color: "#7a887b" }}>Keterangan</span>
+                  <span>{selectedMutation.catatan}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions" style={{ justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setSelectedMutation(null)}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1824,7 +2277,7 @@ function SalesView({
         <div className="panel-heading">
           <div>
             <h2>Pilih barang jamu</h2>
-            <p>Pilih botol / produk untuk ditambahkan ke transaksi</p>
+            <p>Pilih varian produk jamu untuk ditambahkan ke transaksi</p>
           </div>
         </div>
         <div className="searchbox sales-search">
@@ -2093,10 +2546,14 @@ function HistoryView({
 
 function ReportsView({
   sales,
+  dailyStocks = [],
+  products = [],
   onExport,
   onViewDetail
 }: {
   sales: Sale[];
+  dailyStocks?: any[];
+  products?: Product[];
   onExport: () => void;
   onViewDetail: (s: Sale) => void;
 }) {
@@ -2159,12 +2616,127 @@ function ReportsView({
   }, [filteredSales, sortField, sortAsc]);
 
   // Statistics dynamically computed from current filtered sales
-  const validSales = filteredSales.filter(s => s.status !== "Dibatalkan");
-  const cancelledSales = filteredSales.filter(s => s.status === "Dibatalkan");
+  const validSales = useMemo(() => filteredSales.filter(s => s.status !== "Dibatalkan" && s.status !== "Batal"), [filteredSales]);
 
-  const totalPenjualan = validSales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const totalPenjualan = useMemo(() => validSales.reduce((sum, s) => sum + Number(s.total || 0), 0), [validSales]);
   const transaksiTercatat = validSales.length;
-  const transaksiDibatalkan = cancelledSales.length;
+
+  const totalJamuTerjualMl = useMemo(() => validSales.reduce((sum, s) => sum + Number(s.jamu_terjual_ml || 0), 0), [validSales]);
+  const totalRestokMl = useMemo(() => validSales.reduce((sum, s) => sum + Number(s.restok_ml || 0), 0), [validSales]);
+
+  // Helper: get total stock on a given ISO date with completeness check
+  const getStockInfoForDate = useCallback((targetDate: string): { total: number; isComplete: boolean; count: number } => {
+    const activeProducts = products.filter(p => p.aktif);
+    const requiredCount = activeProducts.length || 14;
+
+    const entries = dailyStocks.filter(s => (s.tanggal === targetDate || s.date === targetDate));
+    
+    // If we have entries for this date, check if they cover all active products
+    if (entries.length > 0) {
+      const uniqueProductIds = new Set(entries.map(e => e.produk_id || e.productId));
+      const total = entries.reduce((sum, item) => sum + Number(item.jumlah !== undefined ? item.jumlah : (item.qty !== undefined ? item.qty : item.stock) || 0), 0);
+      return {
+        total,
+        isComplete: uniqueProductIds.size >= requiredCount,
+        count: uniqueProductIds.size
+      };
+    }
+    
+    // Fallback for today if no entries yet (using current products state)
+    if (targetDate === todayIso && products.length > 0) {
+      const total = products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
+      return {
+        total,
+        isComplete: products.length >= requiredCount,
+        count: products.length
+      };
+    }
+
+    return { total: null as any, isComplete: false, count: 0 };
+  }, [dailyStocks, products, todayIso]);
+
+  // Reconciliation data
+  const reconciliationData = useMemo(() => {
+    const activeCount = products.filter(p => p.aktif).length || 14;
+
+    if (periodMode === "daily") {
+      const prevDate = getJakartaYesterdayIso(new Date(`${selectedDate}T12:00:00Z`));
+      const infoToday = getStockInfoForDate(selectedDate);
+      const infoYesterday = getStockInfoForDate(prevDate);
+
+      const hasStockData = infoToday.count > 0 && infoYesterday.count > 0;
+      const isComplete = infoToday.isComplete && infoYesterday.isComplete;
+      const calculatedSold = hasStockData ? infoYesterday.total - infoToday.total + totalRestokMl : 0;
+      const diff = totalJamuTerjualMl - calculatedSold;
+
+      return {
+        hasStockData,
+        isComplete,
+        inputSales: totalJamuTerjualMl,
+        inputRestock: totalRestokMl,
+        stokToday: infoToday.total,
+        stokYesterday: infoYesterday.total,
+        calculatedSold,
+        diff,
+        missingDays: !infoToday.isComplete ? [selectedDate] : (!infoYesterday.isComplete ? [prevDate] : [])
+      };
+    } else {
+      // Monthly mode: calculate day-by-day accumulation
+      const [yearStr, monthStr] = selectedMonth.split("-");
+      const year = Number(yearStr);
+      const month = Number(monthStr);
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      let accumulatedCalculatedSold = 0;
+      let validDaysCount = 0;
+      const missingDays: string[] = [];
+      const incompleteDays: string[] = [];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dStr = String(day).padStart(2, "0");
+        const currIso = `${yearStr}-${monthStr}-${dStr}`;
+        const prevIso = getJakartaYesterdayIso(new Date(`${currIso}T12:00:00Z`));
+
+        // Skip future dates
+        if (currIso > todayIso) continue;
+
+        const dayValidSales = sales.filter(s => getSaleDate(s) === currIso && s.status !== "Dibatalkan" && s.status !== "Batal");
+        const dayRestock = dayValidSales.reduce((sum, s) => sum + Number(s.restok_ml || 0), 0);
+
+        const infoToday = getStockInfoForDate(currIso);
+        const infoYesterday = getStockInfoForDate(prevIso);
+
+        if (infoToday.total !== null && infoYesterday.total !== null) {
+          const dayCalculatedSold = (infoYesterday.total - infoToday.total) + dayRestock;
+          accumulatedCalculatedSold += dayCalculatedSold;
+          validDaysCount++;
+          if (!infoToday.isComplete || !infoYesterday.isComplete) {
+            incompleteDays.push(currIso);
+          }
+        } else {
+          missingDays.push(currIso);
+        }
+      }
+
+      const hasStockData = validDaysCount > 0;
+      const isComplete = missingDays.length === 0 && incompleteDays.length === 0;
+      const diff = totalJamuTerjualMl - accumulatedCalculatedSold;
+
+      return {
+        hasStockData,
+        isComplete,
+        inputSales: totalJamuTerjualMl,
+        inputRestock: totalRestokMl,
+        stokToday: null,
+        stokYesterday: null,
+        calculatedSold: accumulatedCalculatedSold,
+        diff,
+        missingDays,
+        incompleteDays,
+        validDaysCount
+      };
+    }
+  }, [periodMode, selectedDate, selectedMonth, totalJamuTerjualMl, totalRestokMl, getStockInfoForDate, sales, products, todayIso]);
 
   const monthNameMap: Record<string, string> = {
     "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
@@ -2260,8 +2832,8 @@ function ReportsView({
         Periode: <strong>{periodCaption}</strong> · Asia/Jakarta
       </div>
 
-      {/* 3 KPI Cards */}
-      <div className="report-kpi-grid">
+      {/* 4 KPI Cards (Section C) */}
+      <div className="report-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 20 }}>
         <div className="report-kpi-card">
           <div className="report-kpi-top">
             <span className="report-kpi-label">Total penjualan</span>
@@ -2275,7 +2847,7 @@ function ReportsView({
 
         <div className="report-kpi-card">
           <div className="report-kpi-top">
-            <span className="report-kpi-label">Transaksi tercatat</span>
+            <span className="report-kpi-label">Total transaksi</span>
             <div className="report-kpi-badge">
               <FileText size={13} />
             </div>
@@ -2286,15 +2858,129 @@ function ReportsView({
 
         <div className="report-kpi-card">
           <div className="report-kpi-top">
-            <span className="report-kpi-label">Transaksi dibatalkan</span>
+            <span className="report-kpi-label">Jamu terjual (ml)</span>
             <div className="report-kpi-badge">
-              <RotateCcw size={13} />
+              <Sprout size={13} />
             </div>
           </div>
-          <div className="report-kpi-value">{transaksiDibatalkan}</div>
-          <div className="report-kpi-footer">Tidak dihitung dalam pendapatan</div>
+          <div className="report-kpi-value">{totalJamuTerjualMl.toLocaleString("id-ID")} ml</div>
+          <div className="report-kpi-footer">Input volume penjualan karyawan</div>
+        </div>
+
+        <div className="report-kpi-card">
+          <div className="report-kpi-top">
+            <span className="report-kpi-label">Restok / kulakan (ml)</span>
+            <div className="report-kpi-badge">
+              <Download size={13} />
+            </div>
+          </div>
+          <div className="report-kpi-value">{totalRestokMl.toLocaleString("id-ID")} ml</div>
+          <div className="report-kpi-footer">Total restok jamu periode ini</div>
         </div>
       </div>
+
+      {/* Section D & E: Rekonsiliasi Stok dan Penjualan Jamu */}
+      <section className="report-table-panel" style={{ marginBottom: 24, padding: 20, background: "#ffffff", borderRadius: 12, border: "1px solid #e1e9df" }}>
+        <div className="report-table-header" style={{ marginBottom: 16 }}>
+          <div>
+            <h2 style={{ fontSize: "16px", color: "#253628", fontWeight: 700, margin: 0 }}>Rekonsiliasi Stok dan Penjualan Jamu</h2>
+            <p style={{ fontSize: "11.5px", color: "#7a8a7c", margin: "4px 0 0" }}>
+              Perbandingan jamu terjual (input karyawan) dengan hasil kalkulasi perubahan fisik stok (Stok Kemarin − Stok Hari Ini + Restok).
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 }}>
+          <div style={{ background: "#f8faf7", border: "1px solid #e4ede3", padding: "14px 16px", borderRadius: 8 }}>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Jamu Terjual (Input Karyawan)</span>
+            <strong style={{ display: "block", fontSize: "20px", color: "#255333", marginTop: 4 }}>
+              {reconciliationData.inputSales.toLocaleString("id-ID")} ml
+            </strong>
+            <span style={{ fontSize: "10px", color: "#8a968b" }}>Catatan formulir transaksi</span>
+          </div>
+
+          <div style={{ background: "#f8faf7", border: "1px solid #e4ede3", padding: "14px 16px", borderRadius: 8 }}>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Stok Terjual (Hasil Perhitungan)</span>
+            <strong style={{ display: "block", fontSize: "20px", color: reconciliationData.hasStockData ? "#255333" : "#d97706", marginTop: 4 }}>
+              {reconciliationData.hasStockData 
+                ? `${reconciliationData.calculatedSold.toLocaleString("id-ID")} ml` 
+                : "Data tidak tersedia"}
+              {reconciliationData.hasStockData && !reconciliationData.isComplete && (
+                <span style={{ fontSize: "10px", color: "#d97706", display: "block", fontWeight: 500 }}> (Parsial)</span>
+              )}
+            </strong>
+            <span style={{ fontSize: "10px", color: "#8a968b" }}>
+              {periodMode === "daily" ? "Formula: Stok Kemarin − Stok Hari Ini + Restok" : `Akumulasi ${reconciliationData.validDaysCount || 0} hari valid`}
+            </span>
+          </div>
+
+          <div style={{
+            background: !reconciliationData.hasStockData ? "#fffbeb" : (!reconciliationData.isComplete ? "#fff7ed" : (reconciliationData.diff === 0 ? "#f0fdf4" : "#fef2f2")),
+            border: `1px solid ${!reconciliationData.hasStockData ? "#fcd34d" : (!reconciliationData.isComplete ? "#fdba74" : (reconciliationData.diff === 0 ? "#86efac" : "#fca5a5"))}`,
+            padding: "14px 16px",
+            borderRadius: 8
+          }}>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Selisih Rekonsiliasi</span>
+            <strong style={{
+              display: "block",
+              fontSize: "20px",
+              color: !reconciliationData.hasStockData ? "#d97706" : (!reconciliationData.isComplete ? "#ea580c" : (reconciliationData.diff === 0 ? "#15803d" : "#b91c1c")),
+              marginTop: 4
+            }}>
+              {!reconciliationData.hasStockData ? "—" : `${reconciliationData.diff > 0 ? "+" : ""}${reconciliationData.diff.toLocaleString("id-ID")} ml`}
+            </strong>
+            <span style={{
+              display: "inline-block",
+              fontSize: "10px",
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 12,
+              marginTop: 4,
+              background: !reconciliationData.hasStockData ? "#fef3c7" : (!reconciliationData.isComplete ? "#ffedd5" : (reconciliationData.diff === 0 ? "#dcfce7" : "#fee2e2")),
+              color: !reconciliationData.hasStockData ? "#b45309" : (!reconciliationData.isComplete ? "#9a3412" : (reconciliationData.diff === 0 ? "#15803d" : "#b91c1c"))
+            }}>
+              {!reconciliationData.hasStockData
+                ? "Data stok kosong"
+                : (!reconciliationData.isComplete ? "Data belum lengkap" : (reconciliationData.diff === 0 ? "Sesuai" : "Perlu pemeriksaan"))}
+            </span>
+          </div>
+        </div>
+
+        <div style={{
+          fontSize: "11.5px",
+          lineHeight: 1.5,
+          color: "#4f6052",
+          background: "#f9faf8",
+          padding: "12px 16px",
+          borderRadius: 8,
+          border: "1px solid #e7eee6"
+        }}>
+          {!reconciliationData.hasStockData ? (
+            <span>Catatan stok harian belum tersedia pada periode ini. Silakan isi stok harian pada menu Barang & stok.</span>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {reconciliationData.diff === 0 && reconciliationData.isComplete ? (
+                <span>Laporan penjualan karyawan tepat sesuai dengan perubahan stok fisik di toko (0 ml).</span>
+              ) : (
+                <span>
+                  {reconciliationData.isComplete ? "Analisis:" : "Analisis (Berdasarkan data parsial):"} Terdapat selisih <strong>{reconciliationData.diff > 0 ? "+" : ""}{reconciliationData.diff.toLocaleString("id-ID")} ml</strong>. Laporan karyawan ({reconciliationData.inputSales.toLocaleString("id-ID")} ml) {reconciliationData.diff > 0 ? "lebih besar" : "lebih kecil"} daripada hasil perhitungan perubahan fisik stok ({reconciliationData.calculatedSold.toLocaleString("id-ID")} ml).
+                </span>
+              )}
+              
+              {!reconciliationData.isComplete && (
+                <div style={{ marginTop: 4, padding: "8px 12px", background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: 6, color: "#9a3412" }}>
+                  <strong>Data belum lengkap:</strong> Kalkulasi di atas hanya mencakup {reconciliationData.validDaysCount} hari yang memiliki data stok lengkap (14 produk).
+                  {(reconciliationData.missingDays || []).length > 0 && (
+                    <div style={{ marginTop: 4, fontSize: "10.5px" }}>
+                      Hari tanpa data stok: {reconciliationData.missingDays?.slice(0, 5).join(", ")}{(reconciliationData.missingDays?.length || 0) > 5 ? "..." : ""}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Laporan Transaksi Panel */}
       <section className="report-table-panel">
@@ -2429,7 +3115,7 @@ function SettingsPageView({
             </div>
           </div>
           <p style={{ color: "#78867a", lineHeight: 1.5 }}>
-            Semua perubahan stok botol dan pencatatan transaksi langsung tersinkronisasi.
+            Semua perubahan stok fisik (ml) dan pencatatan transaksi langsung tersinkronisasi.
           </p>
         </div>
       </section>

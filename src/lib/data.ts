@@ -1,78 +1,37 @@
-import type { Product, Sale, SaleItem } from "../types";
+import type { Product, Sale, SaleItem, StockMutation } from "../types";
 
 export let currentRevision = 1;
 export let canEditState = true;
 export let isSupabaseConfigured = true;
 
-let ownerToken: string | null = null;
-try {
-  ownerToken = localStorage.getItem("jamu_owner_token") || sessionStorage.getItem("jamu_owner_token");
-} catch {}
-
 export function getOwnerToken(): string | null {
-  return ownerToken;
+  return null;
 }
 
-export function setOwnerToken(token: string | null) {
-  ownerToken = token;
-  try {
-    if (token) {
-      localStorage.setItem("jamu_owner_token", token);
-      sessionStorage.setItem("jamu_owner_token", token);
-    } else {
-      localStorage.removeItem("jamu_owner_token");
-      sessionStorage.removeItem("jamu_owner_token");
-    }
-  } catch {}
-}
+export function setOwnerToken(_token: string | null) {}
 
 export function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (ownerToken) {
-    headers["Authorization"] = `Bearer ${ownerToken}`;
-    headers["x-owner-token"] = ownerToken;
-  }
-  return headers;
+  return {};
 }
 
 export const demoProducts: Product[] = [
-  { id: "prod-1", sku: "H", code: "H", name: "Habba", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 10, min_stock: 3, last_updated: "26 Okt 2026" },
-  { id: "prod-2", sku: "KS", code: "KS", name: "Kunyit Sirih", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 12, min_stock: 3, last_updated: "26 Okt 2026" },
-  { id: "prod-3", sku: "SS", code: "SS", name: "Sirih Sereh", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 4, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-4", sku: "SP", code: "SP", name: "Sambiloto Pahit", category: "Jamu Cair", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 10, min_stock: 3, last_updated: "26 Okt 2026" },
-  { id: "prod-5", sku: "M", code: "M", name: "Mengkudu", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 7, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-6", sku: "K", code: "K", name: "Kencur", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 4, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-7", sku: "O", code: "O", name: "Olahan Temulawak", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 14, min_stock: 3, last_updated: "26 Okt 2026" },
-  { id: "prod-8", sku: "P", code: "P", name: "Pahit", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 3, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-9", sku: "B", code: "B", name: "Beras Kencur", category: "Jamu Cair", unit: "BOTOL", buy_price: 5000, sell_price: 8000, stock: 3, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-10", sku: "HJ", code: "HJ", name: "Herbal Jahe", category: "Jamu Cair", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 7, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-11", sku: "PB", code: "PB", name: "Pahit Brotowali", category: "Jamu Cair", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 5, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-12", sku: "PLS", code: "PLS", name: "Pegal Linu Super", category: "Jamu Cair", unit: "BOTOL", buy_price: 6000, sell_price: 9000, stock: 3, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-13", sku: "DRT", code: "DRT", name: "Darah Tinggi", category: "Herbal", unit: "BOTOL", buy_price: 7000, sell_price: 10000, stock: 3, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-14", sku: "KCM", code: "KCM", name: "Kencing Manis", category: "Herbal", unit: "BOTOL", buy_price: 7000, sell_price: 10000, stock: 2, min_stock: 2, last_updated: "26 Okt 2026" },
-  { id: "prod-15", sku: "MADU LANANG", code: "MADU LANANG", name: "Madu Lanang", category: "Herbal", unit: "PCS", buy_price: 15000, sell_price: 25000, stock: 28, min_stock: 5, last_updated: "26 Okt 2026" }
+  { id: "prod-1793547155241", sku: "H", code: "H", name: "Asam Urat Khusus Diabetes", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 2000, last_updated: null },
+  { id: "prod-1793547155456", sku: "KS", code: "KS", name: "Kesemutan", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 2000, last_updated: null },
+  { id: "prod-1793547155627", sku: "SS", code: "SS", name: "Sesak Nafas", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 2000, last_updated: null },
+  { id: "prod-1793547155763", sku: "SP", code: "SP", name: "Spesial", category: "Jamu Cair", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 2000, last_updated: null },
+  { id: "prod-1793547155912", sku: "M", code: "M", name: "Nyeri / Sakit Kepala", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156043", sku: "K", code: "K", name: "Kolesterol", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156183", sku: "O", code: "O", name: "Sakit Pinggang", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156298", sku: "P", code: "P", name: "Asam Urat", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156431", sku: "B", code: "B", name: "Pegelinu", category: "Jamu Cair", unit: "ml", buy_price: 5000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156547", sku: "HJ", code: "HJ", name: "Flu Batuk", category: "Jamu Cair", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156679", sku: "PB", code: "PB", name: "Lambung", category: "Jamu Cair", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156814", sku: "PLS", code: "PLS", name: "Pelangsing", category: "Jamu Cair", unit: "ml", buy_price: 6000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547156935", sku: "DRT", code: "DRT", name: "Darah Tinggi", category: "Jamu Cair", unit: "ml", buy_price: 7000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null },
+  { id: "prod-1793547157054", sku: "KCM", code: "KCM", name: "Kencing Manis", category: "Jamu Cair", unit: "ml", buy_price: 7000, sell_price: 10000, stock: 0, min_stock: 1000, last_updated: null }
 ];
 
-export const demoSales: Sale[] = [
-  { id: "sale-1", invoice_no: "TRX-20261026-660EFE", customer_name: "Pendapatan jamu", total: 410000, payment_method: "Tunai", notes: "Penjualan harian botol jamu", created_at: "2026-10-26T17:30:00Z", status: "Tercatat" },
-  { id: "sale-2", invoice_no: "TRX-20261024-163D53", customer_name: "Pendapatan jamu", total: 390000, payment_method: "QRIS", notes: "Penjualan harian", created_at: "2026-10-24T18:15:00Z", status: "Tercatat" },
-  { id: "sale-3", invoice_no: "TRX-20261023-7C1437", customer_name: "Pendapatan jamu", total: 355000, payment_method: "Tunai", notes: "Penjualan harian", created_at: "2026-10-23T16:45:00Z", status: "Tercatat" },
-  { id: "sale-4", invoice_no: "TRX-20261022-D5148D", customer_name: "Pendapatan jamu", total: 455000, payment_method: "Tunai", notes: "Penjualan harian", created_at: "2026-10-22T19:00:00Z", status: "Tercatat" },
-  { id: "sale-5", invoice_no: "TRX-20261022-9C1212", customer_name: "Pendapatan jamu", total: 890000, payment_method: "QRIS", notes: "Penjualan borongan & botol", created_at: "2026-10-21T18:30:00Z", status: "Tercatat" },
-  { id: "sale-6", invoice_no: "TRX-20261019-331A12", customer_name: "Pendapatan jamu", total: 245000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-19T17:00:00Z", status: "Tercatat" },
-  { id: "sale-7", invoice_no: "TRX-20261018-8A3319", customer_name: "Pendapatan jamu", total: 320000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-18T17:00:00Z", status: "Tercatat" },
-  { id: "sale-8", invoice_no: "TRX-20261017-909BF1", customer_name: "Pendapatan jamu", total: 185000, payment_method: "QRIS", notes: "Penjualan", created_at: "2026-10-17T18:00:00Z", status: "Tercatat" },
-  { id: "sale-9", invoice_no: "TRX-20261015-4B8210", customer_name: "Pendapatan jamu", total: 275000, payment_method: "Transfer", notes: "Pesanan herbal & jamu", created_at: "2026-10-15T15:20:00Z", status: "Tercatat" },
-  { id: "sale-10", invoice_no: "TRX-20261014-77A124", customer_name: "Pendapatan jamu", total: 165000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-14T17:15:00Z", status: "Tercatat" },
-  { id: "sale-11", invoice_no: "TRX-20261012-302CD9", customer_name: "Pendapatan jamu", total: 210000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-12T16:40:00Z", status: "Tercatat" },
-  { id: "sale-12", invoice_no: "TRX-20261010-2C9914", customer_name: "Pendapatan jamu", total: 220000, payment_method: "Tunai", notes: "Penjualan botol", created_at: "2026-10-10T16:00:00Z", status: "Tercatat" },
-  { id: "sale-13", invoice_no: "TRX-20261008-118FA0", customer_name: "Pendapatan jamu", total: 175000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-08T17:30:00Z", status: "Tercatat" },
-  { id: "sale-14", invoice_no: "TRX-20261006-554EA1", customer_name: "Pendapatan jamu", total: 135000, payment_method: "QRIS", notes: "Penjualan", created_at: "2026-10-06T18:10:00Z", status: "Tercatat" },
-  { id: "sale-15", invoice_no: "TRX-20261004-902BC8", customer_name: "Pendapatan jamu", total: 142000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-04T17:20:00Z", status: "Tercatat" },
-  { id: "sale-16", invoice_no: "TRX-20261002-4410E7", customer_name: "Pendapatan jamu", total: 115000, payment_method: "Tunai", notes: "Penjualan", created_at: "2026-10-02T16:00:00Z", status: "Tercatat" }
-];
-
-
+export const demoSales: Sale[] = [];
 
 function parseStateResponse(rawState: any, rev: number) {
   const state = typeof rawState === "string" ? JSON.parse(rawState) : (rawState || {});
@@ -84,13 +43,13 @@ function parseStateResponse(rawState: any, rev: number) {
     code: String(p.code || p.kode || p.sku || ""),
     name: String(p.name || p.nama || ""),
     category: String(p.category || "Jamu Cair"),
-    unit: String(p.unit || p.satuan || "BOTOL"),
+    unit: String(p.unit || p.satuan || "ml"),
     buy_price: Number(p.buy_price || 0),
     sell_price: Number(p.sell_price || p.price || p.harga || 0),
     stock: Number(p.stock !== undefined ? p.stock : 0),
-    min_stock: Number(p.min_stock !== undefined ? p.min_stock : 2),
-    status: String(p.status || (p.payload as Record<string, unknown>)?.status || (Number(p.stock || 0) <= Number(p.min_stock || 2) ? "Stok menipis" : "Stok aman")),
-    last_updated: String(p.last_updated || "26 Okt 2026")
+    min_stock: Number(p.min_stock !== undefined ? p.min_stock : 200),
+    status: String(p.status || (p.payload as Record<string, unknown>)?.status || (Number(p.stock || 0) <= Number(p.min_stock || 200) ? "Stok menipis" : "Stok aman")),
+    last_updated: null
   }));
 
   const sales: Sale[] = (state.transactions || state.sales || []).map((s: Record<string, unknown>) => {
@@ -113,6 +72,8 @@ function parseStateResponse(rawState: any, rev: number) {
       payment_method: String(s.payment_method || "Tunai"),
       notes: s.notes || s.catatan ? String(s.notes || s.catatan) : null,
       status: String(s.status === "valid" ? "Tercatat" : (s.status || "Tercatat")),
+      jamu_terjual_ml: Number(s.jamu_terjual_ml !== undefined ? s.jamu_terjual_ml : ((s.payload as any)?.jamu_terjual_ml || 0)),
+      restok_ml: Number(s.restok_ml !== undefined ? s.restok_ml : ((s.payload as any)?.restok_ml || 0)),
       created_at: createdAt || (dateStr ? `${dateStr}T12:00:00Z` : new Date().toISOString())
     };
   });
@@ -139,147 +100,94 @@ function parseStateResponse(rawState: any, rev: number) {
     return (b.urutan || 0) - (a.urutan || 0);
   });
 
-  return { products, sales, revision: currentRevision, canEdit: canEditState, rawState: state };
-}
+  const stockEntries: any[] = (state.dailyStocks || state.stok_harian || state.stockEntries || []).map((s: Record<string, unknown>) => {
+    const pId = String(s.produk_id || s.productId || "");
+    const qty = Number(s.jumlah !== undefined ? s.jumlah : (s.qty !== undefined ? s.qty : s.stock) || 0);
+    return {
+      id: String(s.id || ""),
+      urutan: Number(s.urutan || 0),
+      produk_id: pId,
+      productId: pId,
+      tanggal: String(s.tanggal || s.date || "").slice(0, 10),
+      date: String(s.date || s.tanggal || "").slice(0, 10),
+      jumlah: qty,
+      qty: qty,
+      stock: qty,
+      status: String(s.status || ""),
+      payload: s.payload || {}
+    };
+  });
 
-function applyLocalAction(state: any, action: string, payload: any) {
-  const next = JSON.parse(JSON.stringify(state || {}));
-  if (action === "income") {
-    const now = new Date();
-    const dateStr = (payload.tanggal || payload.date || now.toISOString().slice(0, 10)).slice(0, 10);
-    const randomPart = Math.random().toString(16).substring(2, 8).toUpperCase();
-    const datePart = dateStr.replace(/-/g, "");
-    const invoiceNo = payload.nomor || payload.invoice_no || `TRX-${datePart}-${randomPart}`;
-    const newTrx = {
-      id: payload.id || `trx-${Date.now()}-${randomPart}`,
-      nomor: invoiceNo,
-      invoice_no: invoiceNo,
+  const stockMutations: StockMutation[] = (state.stockMutations || state.mutasi_stok || state.moves || []).map((m: Record<string, unknown>) => {
+    const pId = String(m.produk_id || m.productId || "");
+    const dateStr = String(m.tanggal || m.date || "").slice(0, 10);
+    const createdAt = String(m.created_at || (m.payload as any)?.created_at || (dateStr ? `${dateStr}T12:00:00Z` : new Date().toISOString()));
+    const prev = Number(m.stok_sebelumnya !== undefined ? m.stok_sebelumnya : ((m.payload as any)?.stok_sebelumnya || 0));
+    const nextStk = Number(m.stok_terbaru !== undefined ? m.stok_terbaru : ((m.payload as any)?.stok_terbaru || m.jumlah || m.qty || 0));
+    const delta = Number(m.perubahan !== undefined ? m.perubahan : ((m.payload as any)?.perubahan !== undefined ? (m.payload as any).perubahan : (nextStk - prev)));
+
+    return {
+      id: String(m.id || ""),
+      urutan: Number(m.urutan || 0),
+      produk_id: pId,
+      productId: pId,
       tanggal: dateStr,
-      date: dateStr,
-      total: Number(payload.total) || 0,
-      status: "Tercatat",
-      catatan: payload.catatan || payload.notes || payload.customer_name || "Pendapatan jamu",
-      customer_name: payload.customer_name || payload.catatan || "Pendapatan jamu",
-      payment_method: payload.payment_method || "Tunai",
-      items: payload.items || [],
-      payload: {
-        items: payload.items || [],
-        payment_method: payload.payment_method || "Tunai",
-        customer_name: payload.customer_name || "Pendapatan jamu"
-      }
+      created_at: createdAt,
+      stok_sebelumnya: prev,
+      stok_terbaru: nextStk,
+      perubahan: delta,
+      jumlah: Math.abs(delta),
+      jenis: String(m.jenis || "Stok Harian"),
+      catatan: m.catatan || m.notes ? String(m.catatan || m.notes) : null,
+      payload: m.payload || {}
     };
-    const existingIdx = (next.transactions || next.sales || []).findIndex((t: any) => t.id === newTrx.id);
-    if (existingIdx >= 0) {
-      next.transactions[existingIdx] = {
-        ...next.transactions[existingIdx],
-        ...newTrx,
-        created_at: next.transactions[existingIdx].created_at,
-        urutan: next.transactions[existingIdx].urutan
-      };
-    } else {
-      next.transactions = [newTrx, ...(next.transactions || next.sales || [])];
-    }
-    next.sales = next.transactions;
-  } else if (action === "stocktake") {
-    const date = payload.tanggal || payload.date || new Date().toISOString().slice(0, 10);
-    const items = payload.items || payload.stocks || {};
-    const statuses = payload.statuses || {};
-    let currentStocks = [...(next.dailyStocks || next.stockEntries || next.stok_harian || [])];
-    Object.entries(items).forEach(([prodId, amount]) => {
-      const qty = Math.max(0, Number(amount) || 0);
-      const p = (next.products || []).find((x: any) =>
-        x.id === prodId || x.kode === prodId || x.code === prodId || x.sku === prodId
-      );
-      const resolvedProdId = p ? p.id : prodId;
-      const userStatus = statuses[prodId] || (p && statuses[p.id]) || (qty > (p?.min_stock || 2) ? "Stok aman" : "Stok menipis");
-      if (p) {
-        p.stock = qty;
-        p.status = userStatus;
-        p.last_updated = date;
-      }
-      const matchIdx = currentStocks.findIndex((s: any) => {
-        const sPid = s.produk_id || s.productId;
-        const isSameProd = sPid === resolvedProdId || (p && (sPid === p.id || sPid === p.kode || sPid === p.code || sPid === p.sku));
-        return isSameProd && (s.tanggal === date || s.date === date);
-      });
-      const record = {
-        id: matchIdx >= 0 ? currentStocks[matchIdx].id : `stock-${Date.now()}-${resolvedProdId}`,
-        urutan: matchIdx >= 0 ? (currentStocks[matchIdx].urutan || 1) : (currentStocks.length + 1),
-        produk_id: resolvedProdId,
-        productId: resolvedProdId,
-        tanggal: date,
-        date: date,
-        jumlah: qty,
-        qty: qty,
-        status: userStatus
-      };
-      if (matchIdx >= 0) currentStocks[matchIdx] = record;
-      else currentStocks.unshift(record);
-    });
-    next.dailyStocks = currentStocks;
-    next.stockEntries = currentStocks;
-    next.stok_harian = currentStocks;
-  } else if (action === "product" || action === "variants") {
-    const prodId = payload.id || `prod-${Date.now()}`;
-    const existingIdx = (next.products || []).findIndex((p: any) => p.id === prodId || p.kode === payload.kode);
-    const updatedProd = {
-      id: prodId,
-      urutan: existingIdx >= 0 ? next.products[existingIdx].urutan : (next.products?.length || 0) + 1,
-      kode: payload.kode || payload.code || payload.sku || "JH",
-      code: payload.kode || payload.code || payload.sku || "JH",
-      sku: payload.kode || payload.code || payload.sku || "JH",
-      nama: payload.nama || payload.name || "Produk",
-      name: payload.nama || payload.name || "Produk",
-      satuan: payload.satuan || payload.unit || "BOTOL",
-      unit: payload.satuan || payload.unit || "BOTOL",
-      harga: Number(payload.harga || payload.price || payload.sell_price || 0),
-      price: Number(payload.harga || payload.price || payload.sell_price || 0),
-      sell_price: Number(payload.harga || payload.price || payload.sell_price || 0),
-      buy_price: Number(payload.buy_price || 0),
-      stock: Number(payload.stock !== undefined ? payload.stock : 0),
-      min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 2),
-      aktif: payload.aktif !== undefined ? Boolean(payload.aktif) : true
-    };
-    if (existingIdx >= 0) next.products[existingIdx] = { ...next.products[existingIdx], ...updatedProd };
-    else (next.products = next.products || []).push(updatedProd);
-  }
-  return next;
+  });
+
+  stockMutations.sort((a, b) => {
+    const ca = a.created_at || `${a.tanggal}T12:00:00Z`;
+    const cb = b.created_at || `${b.tanggal}T12:00:00Z`;
+    return cb.localeCompare(ca);
+  });
+
+  return { products, sales, stockMutations, stockEntries, revision: currentRevision, canEdit: true, rawState: state };
 }
 
 /**
- * Fetch full store from /api/store with direct Supabase RPC fallback
+ * Fetch full store from /api/store
  */
 export async function fetchStore(): Promise<{
   products: Product[];
   sales: Sale[];
+  stockMutations: StockMutation[];
+  stockEntries: any[];
   revision: number;
   canEdit: boolean;
 }> {
-  try {
-    const res = await fetch("/api/store", {
-      headers: { ...getAuthHeaders() },
-      credentials: "same-origin"
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const data = await res.json();
-    canEditState = true;
-    if (data.configured !== undefined) {
-      isSupabaseConfigured = Boolean(data.configured);
-    }
-    const parsed = parseStateResponse(data.state, data.revision);
-    return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: true };
-  } catch (err) {
-    console.warn("Gagal memuat data dari /api/store:", err);
+  const res = await fetch("/api/store", {
+    headers: { ...getAuthHeaders() },
+    credentials: "same-origin"
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
     isSupabaseConfigured = false;
-    return {
-      products: [],
-      sales: [],
-      revision: currentRevision,
-      canEdit: true
-    };
+    throw new Error(errData.error || `Gagal terhubung ke database server (HTTP ${res.status}).`);
   }
+
+  const data = await res.json();
+  canEditState = true;
+  if (data.configured !== undefined) {
+    isSupabaseConfigured = Boolean(data.configured);
+  }
+  const parsed = parseStateResponse(data.state, data.revision);
+  return { 
+    products: parsed.products, 
+    sales: parsed.sales, 
+    stockMutations: parsed.stockMutations, 
+    stockEntries: parsed.stockEntries,
+    revision: parsed.revision, 
+    canEdit: true 
+  };
 }
 
 /**
@@ -288,6 +196,8 @@ export async function fetchStore(): Promise<{
 export async function sendStoreAction(action: string, payload: unknown): Promise<{
   products: Product[];
   sales: Sale[];
+  stockMutations: StockMutation[];
+  stockEntries: any[];
   revision: number;
   canEdit: boolean;
 }> {
@@ -309,13 +219,15 @@ export async function sendStoreAction(action: string, payload: unknown): Promise
     throw new Error("Data telah diperbarui oleh sesi lain. Memuat ulang data terbaru…");
   }
 
-  if (res.status === 403) {
-    throw new Error("Akses ditolak: hanya pemilik toko yang dapat mengubah data.");
+  if (res.status === 503) {
+    isSupabaseConfigured = false;
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || "Konfigurasi server database Supabase belum lengkap.");
   }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Gagal menyimpan data (HTTP ${res.status}).`);
+    throw new Error(data.error || `Gagal menyimpan data ke database (HTTP ${res.status}).`);
   }
 
   const data = await res.json();
@@ -324,52 +236,21 @@ export async function sendStoreAction(action: string, payload: unknown): Promise
     isSupabaseConfigured = Boolean(data.configured);
   }
   const parsed = parseStateResponse(data.state, data.revision);
-  return { products: parsed.products, sales: parsed.sales, revision: parsed.revision, canEdit: true };
+  return { 
+    products: parsed.products, 
+    sales: parsed.sales, 
+    stockMutations: parsed.stockMutations, 
+    stockEntries: parsed.stockEntries,
+    revision: parsed.revision, 
+    canEdit: true 
+  };
 }
 
-/**
- * Login owner via /api/owner
- */
-export async function authenticateOwnerApi(code: string): Promise<boolean> {
-  const res = await fetch("/api/owner", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({ code })
-  });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Kode akses salah.");
-  }
-
-  const data = await res.json();
-  canEditState = Boolean(data.canEdit);
-  if (data.token) {
-    setOwnerToken(data.token);
-  }
-  return canEditState;
+export async function authenticateOwnerApi(_code: string): Promise<boolean> {
+  return true;
 }
 
-/**
- * Logout owner via /api/owner
- */
-export async function logoutOwnerApi(): Promise<void> {
-  try {
-    await fetch("/api/owner", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...getAuthHeaders()
-      },
-      credentials: "same-origin",
-      body: JSON.stringify({ action: "logout" })
-    });
-  } finally {
-    setOwnerToken(null);
-    canEditState = false;
-  }
-}
+export async function logoutOwnerApi(): Promise<void> {}
 
 export async function getProducts(): Promise<Product[]> {
   const store = await fetchStore();
@@ -384,13 +265,13 @@ export async function saveProduct(product: Partial<Product> & { name: string }) 
     kode: product.sku || product.code || "JH",
     code: product.sku || product.code || "JH",
     sku: product.sku || product.code || "JH",
-    satuan: product.unit || "BOTOL",
-    unit: product.unit || "BOTOL",
+    satuan: product.unit || "ml",
+    unit: product.unit || "ml",
     harga: Number(product.sell_price || 0),
     buy_price: Number(product.buy_price || 0),
     sell_price: Number(product.sell_price || 0),
     stock: Number(product.stock || 0),
-    min_stock: Number(product.min_stock || 2)
+    min_stock: Number(product.min_stock || 200)
   };
 
   const res = await sendStoreAction("product", payload);
@@ -398,7 +279,6 @@ export async function saveProduct(product: Partial<Product> & { name: string }) 
 }
 
 export async function deleteProduct(id: string) {
-  // Archive or mark inactive
   await sendStoreAction("variants", { id, aktif: false, active: false });
 }
 
@@ -408,12 +288,16 @@ export async function getSales(): Promise<Sale[]> {
 }
 
 export async function createSale(input: {
+  id?: string;
   customer_name?: string;
   payment_method?: string;
   notes?: string;
   total?: number;
   date?: string;
   tanggal?: string;
+  status?: string;
+  jamu_terjual_ml?: number;
+  restok_ml?: number;
   items?: { product_id: string; qty: number; unit_price: number }[];
 }) {
   const total = input.total !== undefined
@@ -427,14 +311,18 @@ export async function createSale(input: {
   const invoiceNo = `TRX-${datePart}-${randomPart}`;
 
   await sendStoreAction("income", {
+    id: input.id,
     nomor: invoiceNo,
     invoice_no: invoiceNo,
     tanggal: dateStr,
     date: dateStr,
     total,
+    status: input.status || "Tercatat",
     customer_name: input.customer_name || input.notes || "Pendapatan jamu",
     payment_method: input.payment_method || "Tunai",
     notes: input.notes || input.customer_name || "Pendapatan transaksi jamu",
+    jamu_terjual_ml: Math.max(0, Number(input.jamu_terjual_ml || 0)),
+    restok_ml: Math.max(0, Number(input.restok_ml || 0)),
     items: input.items || []
   });
 

@@ -3,21 +3,20 @@
 // ============================================================================
 
 export const DEFAULT_PRODUCTS = [
-  { id: 'prod-1', urutan: 1, kode: 'H', code: 'H', sku: 'H', nama: 'Habba', name: 'Habba', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 10, min_stock: 3, aktif: true, active: true },
-  { id: 'prod-2', urutan: 2, kode: 'KS', code: 'KS', sku: 'KS', nama: 'Kunyit Sirih', name: 'Kunyit Sirih', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 12, min_stock: 3, aktif: true, active: true },
-  { id: 'prod-3', urutan: 3, kode: 'SS', code: 'SS', sku: 'SS', nama: 'Sirih Sereh', name: 'Sirih Sereh', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 4, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-4', urutan: 4, kode: 'SP', code: 'SP', sku: 'SP', nama: 'Sambiloto', name: 'Sambiloto', satuan: 'BOTOL', unit: 'BOTOL', harga: 9000, price: 9000, sell_price: 9000, buy_price: 6000, stock: 10, min_stock: 3, aktif: true, active: true },
-  { id: 'prod-5', urutan: 5, kode: 'M', code: 'M', sku: 'M', nama: 'Mengkudu', name: 'Mengkudu', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 7, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-6', urutan: 6, kode: 'K', code: 'K', sku: 'K', nama: 'Kencur', name: 'Kencur', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 4, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-7', urutan: 7, kode: 'O', code: 'O', sku: 'O', nama: 'Olahan', name: 'Olahan', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 14, min_stock: 3, aktif: true, active: true },
-  { id: 'prod-8', urutan: 8, kode: 'P', code: 'P', sku: 'P', nama: 'Pahit', name: 'Pahit', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 3, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-9', urutan: 9, kode: 'B', code: 'B', sku: 'B', nama: 'Beras Kencur', name: 'Beras Kencur', satuan: 'BOTOL', unit: 'BOTOL', harga: 8000, price: 8000, sell_price: 8000, buy_price: 5000, stock: 3, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-10', urutan: 10, kode: 'HJ', code: 'HJ', sku: 'HJ', nama: 'Herbal Jahe', name: 'Herbal Jahe', satuan: 'BOTOL', unit: 'BOTOL', harga: 9000, price: 9000, sell_price: 9000, buy_price: 6000, stock: 7, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-11', urutan: 11, kode: 'PB', code: 'PB', sku: 'PB', nama: 'Pahit Brotowali', name: 'Pahit Brotowali', satuan: 'BOTOL', unit: 'BOTOL', harga: 9000, price: 9000, sell_price: 9000, buy_price: 6000, stock: 5, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-12', urutan: 12, kode: 'PLS', code: 'PLS', sku: 'PLS', nama: 'Pegal Linu Super', name: 'Pegal Linu Super', satuan: 'BOTOL', unit: 'BOTOL', harga: 9000, price: 9000, sell_price: 9000, buy_price: 6000, stock: 3, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-13', urutan: 13, kode: 'DRT', code: 'DRT', sku: 'DRT', nama: 'Darah Tinggi', name: 'Darah Tinggi', satuan: 'BOTOL', unit: 'BOTOL', harga: 10000, price: 10000, sell_price: 10000, buy_price: 7000, stock: 3, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-14', urutan: 14, kode: 'KCM', code: 'KCM', sku: 'KCM', nama: 'Kencing Manis', name: 'Kencing Manis', satuan: 'BOTOL', unit: 'BOTOL', harga: 10000, price: 10000, sell_price: 10000, buy_price: 7000, stock: 2, min_stock: 2, aktif: true, active: true },
-  { id: 'prod-15', urutan: 15, kode: 'ML', code: 'ML', sku: 'MADU LANANG', nama: 'Madu Lanang', name: 'Madu Lanang', satuan: 'PCS', unit: 'PCS', harga: 25000, price: 25000, sell_price: 25000, buy_price: 15000, stock: 28, min_stock: 5, aktif: true, active: true }
+  { id: "prod-1793547155241", urutan: 3, kode: "H", nama: "Asam Urat Khusus Diabetes", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 2000 }, stock: 0, min_stock: 2000, buy_price: 5000 },
+  { id: "prod-1793547155456", urutan: 4, kode: "KS", nama: "Kesemutan", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 2000 }, stock: 0, min_stock: 2000, buy_price: 5000 },
+  { id: "prod-1793547155627", urutan: 5, kode: "SS", nama: "Sesak Nafas", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, buy_price: 5000, min_stock: 2000 }, stock: 0, min_stock: 2000, buy_price: 5000 },
+  { id: "prod-1793547155763", urutan: 6, kode: "SP", nama: "Spesial", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, buy_price: 6000, min_stock: 2000 }, stock: 0, min_stock: 2000, buy_price: 6000 },
+  { id: "prod-1793547155912", urutan: 7, kode: "M", nama: "Nyeri / Sakit Kepala", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 5000 },
+  { id: "prod-1793547156043", urutan: 8, kode: "K", nama: "Kolesterol", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 5000 },
+  { id: "prod-1793547156183", urutan: 9, kode: "O", nama: "Sakit Pinggang", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 5000 },
+  { id: "prod-1793547156298", urutan: 10, kode: "P", nama: "Asam Urat", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 5000 },
+  { id: "prod-1793547156431", urutan: 11, kode: "B", nama: "Pegelinu", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 5000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 5000 },
+  { id: "prod-1793547156547", urutan: 12, kode: "HJ", nama: "Flu Batuk", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 6000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 6000 },
+  { id: "prod-1793547156679", urutan: 13, kode: "PB", nama: "Lambung", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 6000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 6000 },
+  { id: "prod-1793547156814", urutan: 14, kode: "PLS", nama: "Pelangsing", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 6000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 6000 },
+  { id: "prod-1793547156935", urutan: 15, kode: "DRT", nama: "Darah Tinggi", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 7000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 7000 },
+  { id: "prod-1793547157054", urutan: 16, kode: "KCM", nama: "Kencing Manis", satuan: "ml", harga: 10000, aktif: true, payload: { stock: 0, status: "Stok aman", buy_price: 7000, min_stock: 1000 }, stock: 0, min_stock: 1000, buy_price: 7000 }
 ];
 
 export const DEFAULT_TRANSACTIONS = [
@@ -39,55 +38,55 @@ export const DEFAULT_TRANSACTIONS = [
   { id: 'trx-16', urutan: 1, nomor: 'TRX-20261002-4410E7', invoice_no: 'TRX-20261002-4410E7', tanggal: '2026-10-02T16:00:00Z', total: 115000, status: 'Tercatat', catatan: 'Pendapatan jamu', customer_name: 'Pendapatan jamu', payment_method: 'Tunai' }
 ];
 
-// 30 Stok Harian (15 produk tanggal 26 Okt + 15 produk tanggal 24 Okt)
+// 14 Stok Harian (14 produk tanggal 26 Okt)
 export const DEFAULT_DAILY_STOCKS = [
-  // Tanggal 26 Okt (15 produk)
-  { id: 'stock-26-1', urutan: 1, produk_id: 'prod-1', tanggal: '2026-10-26', jumlah: 10, status: 'Stok aman' },
-  { id: 'stock-26-2', urutan: 2, produk_id: 'prod-2', tanggal: '2026-10-26', jumlah: 12, status: 'Stok aman' },
-  { id: 'stock-26-3', urutan: 3, produk_id: 'prod-3', tanggal: '2026-10-26', jumlah: 4,  status: 'Stok aman' },
-  { id: 'stock-26-4', urutan: 4, produk_id: 'prod-4', tanggal: '2026-10-26', jumlah: 10, status: 'Stok aman' },
-  { id: 'stock-26-5', urutan: 5, produk_id: 'prod-5', tanggal: '2026-10-26', jumlah: 7,  status: 'Stok aman' },
-  { id: 'stock-26-6', urutan: 6, produk_id: 'prod-6', tanggal: '2026-10-26', jumlah: 4,  status: 'Stok aman' },
-  { id: 'stock-26-7', urutan: 7, produk_id: 'prod-7', tanggal: '2026-10-26', jumlah: 14, status: 'Stok aman' },
-  { id: 'stock-26-8', urutan: 8, produk_id: 'prod-8', tanggal: '2026-10-26', jumlah: 3,  status: 'Stok aman' },
-  { id: 'stock-26-9', urutan: 9, produk_id: 'prod-9', tanggal: '2026-10-26', jumlah: 3,  status: 'Stok aman' },
-  { id: 'stock-26-10', urutan: 10, produk_id: 'prod-10', tanggal: '2026-10-26', jumlah: 7, status: 'Stok aman' },
-  { id: 'stock-26-11', urutan: 11, produk_id: 'prod-11', tanggal: '2026-10-26', jumlah: 5, status: 'Stok aman' },
-  { id: 'stock-26-12', urutan: 12, produk_id: 'prod-12', tanggal: '2026-10-26', jumlah: 3, status: 'Stok aman' },
-  { id: 'stock-26-13', urutan: 13, produk_id: 'prod-13', tanggal: '2026-10-26', jumlah: 3, status: 'Stok aman' },
-  { id: 'stock-26-14', urutan: 14, produk_id: 'prod-14', tanggal: '2026-10-26', jumlah: 2, status: 'Stok aman' },
-  { id: 'stock-26-15', urutan: 15, produk_id: 'prod-15', tanggal: '2026-10-26', jumlah: 28, status: 'Stok aman' },
-  // Tanggal 24 Okt (15 produk)
-  { id: 'stock-24-1', urutan: 16, produk_id: 'prod-1', tanggal: '2026-10-24', jumlah: 12, status: 'Stok aman' },
-  { id: 'stock-24-2', urutan: 17, produk_id: 'prod-2', tanggal: '2026-10-24', jumlah: 14, status: 'Stok aman' },
-  { id: 'stock-24-3', urutan: 18, produk_id: 'prod-3', tanggal: '2026-10-24', jumlah: 5,  status: 'Stok aman' },
-  { id: 'stock-24-4', urutan: 19, produk_id: 'prod-4', tanggal: '2026-10-24', jumlah: 11, status: 'Stok aman' },
-  { id: 'stock-24-5', urutan: 20, produk_id: 'prod-5', tanggal: '2026-10-24', jumlah: 8,  status: 'Stok aman' },
-  { id: 'stock-24-6', urutan: 21, produk_id: 'prod-6', tanggal: '2026-10-24', jumlah: 6,  status: 'Stok aman' },
-  { id: 'stock-24-7', urutan: 22, produk_id: 'prod-7', tanggal: '2026-10-24', jumlah: 15, status: 'Stok aman' },
-  { id: 'stock-24-8', urutan: 23, produk_id: 'prod-8', tanggal: '2026-10-24', jumlah: 4,  status: 'Stok aman' },
-  { id: 'stock-24-9', urutan: 24, produk_id: 'prod-9', tanggal: '2026-10-24', jumlah: 5,  status: 'Stok aman' },
-  { id: 'stock-24-10', urutan: 25, produk_id: 'prod-10', tanggal: '2026-10-24', jumlah: 8, status: 'Stok aman' },
-  { id: 'stock-24-11', urutan: 26, produk_id: 'prod-11', tanggal: '2026-10-24', jumlah: 6, status: 'Stok aman' },
-  { id: 'stock-24-12', urutan: 27, produk_id: 'prod-12', tanggal: '2026-10-24', jumlah: 4, status: 'Stok aman' },
-  { id: 'stock-24-13', urutan: 28, produk_id: 'prod-13', tanggal: '2026-10-24', jumlah: 4, status: 'Stok aman' },
-  { id: 'stock-24-14', urutan: 29, produk_id: 'prod-14', tanggal: '2026-10-24', jumlah: 3, status: 'Stok aman' },
-  { id: 'stock-24-15', urutan: 30, produk_id: 'prod-15', tanggal: '2026-10-24', jumlah: 30, status: 'Stok aman' }
+  { id: 'stock-26-1', urutan: 3, produk_id: 'prod-1793547155241', tanggal: '2026-10-26', jumlah: 3000, status: 'Stok aman' },
+  { id: 'stock-26-2', urutan: 4, produk_id: 'prod-1793547155456', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-3', urutan: 5, produk_id: 'prod-1793547155627', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-4', urutan: 6, produk_id: 'prod-1793547155763', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-5', urutan: 7, produk_id: 'prod-1793547155912', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-6', urutan: 8, produk_id: 'prod-1793547156043', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-7', urutan: 9, produk_id: 'prod-1793547156183', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-8', urutan: 10, produk_id: 'prod-1793547156298', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-9', urutan: 11, produk_id: 'prod-1793547156431', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-10', urutan: 12, produk_id: 'prod-1793547156547', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-11', urutan: 13, produk_id: 'prod-1793547156679', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-12', urutan: 14, produk_id: 'prod-1793547156814', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-13', urutan: 15, produk_id: 'prod-1793547156935', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' },
+  { id: 'stock-26-14', urutan: 16, produk_id: 'prod-1793547157054', tanggal: '2026-10-26', jumlah: 0, status: 'Stok menipis' }
 ];
+
+export const INITIAL_PRODUCTION_STATE = {
+  schemaVersion: 1,
+  products: DEFAULT_PRODUCTS,
+  sales: [],
+  transactions: [],
+  dailyStocks: [],
+  stockEntries: [],
+  stok_harian: [],
+  stockMutations: [],
+  moves: [],
+  mutasi_stok: [],
+  settings: {
+    storeName: 'Jamu Herbal Gambirono',
+    tagline: 'RUANG USAHA ANDA',
+    timezone: 'Asia/Jakarta'
+  },
+  extra: {}
+};
 
 export const initialSchema1State = {
   schemaVersion: 1,
   products: DEFAULT_PRODUCTS,
-  sales: DEFAULT_TRANSACTIONS,
-  transactions: DEFAULT_TRANSACTIONS,
-  dailyStocks: DEFAULT_DAILY_STOCKS,
-  stok_harian: DEFAULT_DAILY_STOCKS,
+  sales: [],
+  transactions: [],
+  dailyStocks: [],
+  stok_harian: [],
   stockMutations: [],
   mutasi_stok: [],
   settings: {
     storeName: 'Jamu Herbal Gambirono',
     tagline: 'RUANG USAHA ANDA',
-    ownerCodeConfigured: true,
     timezone: 'Asia/Jakarta'
   },
   extra: {}
@@ -163,6 +162,9 @@ export function applyAction(state, action, payload) {
       const datePart = dateStr.replace(/-/g, '');
       const invoiceNo = payload.nomor || payload.invoice_no || `TRX-${datePart}-${randomPart}`;
       
+      const jamuTerjualMl = Math.max(0, Number(payload.jamu_terjual_ml || payload.jamuTerjualMl || 0));
+      const restokMl = Math.max(0, Number(payload.restok_ml || payload.restokMl || 0));
+
       const newTrx = {
         id: payload.id || `trx-${Date.now()}-${randomPart}`,
         nomor: invoiceNo,
@@ -170,15 +172,19 @@ export function applyAction(state, action, payload) {
         tanggal: dateStr,
         date: dateStr,
         total: Number(payload.total) || 0,
-        status: 'Tercatat',
+        status: payload.status || 'Tercatat',
         catatan: payload.catatan || payload.notes || payload.customer_name || 'Pendapatan jamu',
         customer_name: payload.customer_name || payload.catatan || 'Pendapatan jamu',
         payment_method: payload.payment_method || 'Tunai',
+        jamu_terjual_ml: jamuTerjualMl,
+        restok_ml: restokMl,
         items: payload.items || [],
         payload: {
           items: payload.items || [],
           payment_method: payload.payment_method || 'Tunai',
-          customer_name: payload.customer_name || 'Pendapatan jamu'
+          customer_name: payload.customer_name || 'Pendapatan jamu',
+          jamu_terjual_ml: jamuTerjualMl,
+          restok_ml: restokMl
         }
       };
 
@@ -201,10 +207,14 @@ export function applyAction(state, action, payload) {
       const date = payload.tanggal || payload.date || new Date().toISOString().slice(0, 10);
       const items = payload.items || payload.stocks || {};
       const statuses = payload.statuses || {};
+      const nowIso = new Date().toISOString();
 
       // Pastikan mengambil daftar stok dari sumber mana pun yang tersedia
       let currentStocks = [
         ...(next.dailyStocks || next.stockEntries || next.stok_harian || [])
+      ];
+      let currentMutations = [
+        ...(next.stockMutations || next.mutasi_stok || next.moves || [])
       ];
 
       Object.entries(items).forEach(([prodId, amount]) => {
@@ -219,7 +229,9 @@ export function applyAction(state, action, payload) {
           (x.id === 'bd9a7a65-bcc0-5ae9-ba2d-2790cc7ab274' && (prodId === 'prod-15' || prodId === 'ML'))
         );
         const resolvedProdId = p ? p.id : prodId;
-        const userStatus = statuses[prodId] || (p && statuses[p.id]) || (qty > (p?.min_stock || 2) ? 'Stok aman' : 'Stok menipis');
+        const prevStock = p ? (Number(p.stock) || 0) : 0;
+        const delta = qty - prevStock;
+        const userStatus = statuses[prodId] || (p && statuses[p.id]) || (qty > (p?.min_stock || 200) ? 'Stok aman' : 'Stok menipis');
 
         if (p) {
           p.stock = qty;
@@ -257,12 +269,35 @@ export function applyAction(state, action, payload) {
         } else {
           currentStocks.unshift(record);
         }
+
+        // Catat mutasi stok hanya jika ada perubahan nilai
+        if (delta !== 0) {
+          const mutRecord = {
+            id: `mut-${Date.now()}-${resolvedProdId}-${Math.floor(Math.random() * 1000)}`,
+            urutan: currentMutations.length + 1,
+            produk_id: resolvedProdId,
+            productId: resolvedProdId,
+            tanggal: date,
+            date: date,
+            created_at: nowIso,
+            stok_sebelumnya: prevStock,
+            stok_terbaru: qty,
+            perubahan: delta,
+            jumlah: Math.abs(delta),
+            jenis: 'Stok Harian',
+            catatan: `Update stok harian: ${prevStock} ml ➔ ${qty} ml (${delta >= 0 ? '+' : ''}${delta} ml)`
+          };
+          currentMutations.unshift(mutRecord);
+        }
       });
 
       // Terapkan ke semua nama properti agar konsisten
       next.dailyStocks = currentStocks;
       next.stockEntries = currentStocks;
       next.stok_harian = currentStocks;
+      next.stockMutations = currentMutations;
+      next.mutasi_stok = currentMutations;
+      next.moves = currentMutations;
       break;
     }
 
@@ -270,6 +305,10 @@ export function applyAction(state, action, payload) {
     case 'variants': {
       const prodId = payload.id || `prod-${Date.now()}`;
       const existingIdx = (next.products || []).findIndex(p => p.id === prodId || p.kode === payload.kode);
+      const prevStock = existingIdx >= 0 ? Number(next.products[existingIdx].stock || 0) : 0;
+      const newStock = Number(payload.stock !== undefined ? payload.stock : (existingIdx >= 0 ? prevStock : 0));
+      const delta = newStock - prevStock;
+      const nowIso = new Date().toISOString();
       
       const updatedProd = {
         id: prodId,
@@ -279,20 +318,20 @@ export function applyAction(state, action, payload) {
         sku: payload.kode || payload.code || payload.sku || 'JH',
         nama: payload.nama || payload.name || 'Produk',
         name: payload.nama || payload.name || 'Produk',
-        satuan: payload.satuan || payload.unit || 'BOTOL',
-        unit: payload.satuan || payload.unit || 'BOTOL',
+        satuan: payload.satuan || payload.unit || 'ml',
+        unit: payload.satuan || payload.unit || 'ml',
         harga: Number(payload.harga || payload.price || payload.sell_price || 0),
         price: Number(payload.harga || payload.price || payload.sell_price || 0),
         sell_price: Number(payload.harga || payload.price || payload.sell_price || 0),
         buy_price: Number(payload.buy_price || 0),
-        stock: Number(payload.stock !== undefined ? payload.stock : 0),
-        min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 2),
+        stock: newStock,
+        min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 200),
         aktif: payload.aktif !== undefined ? Boolean(payload.aktif) : true,
         active: payload.aktif !== undefined ? Boolean(payload.aktif) : true,
         payload: {
           buy_price: Number(payload.buy_price || 0),
-          stock: Number(payload.stock !== undefined ? payload.stock : 0),
-          min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 2)
+          stock: newStock,
+          min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 200)
         }
       };
 
@@ -300,6 +339,31 @@ export function applyAction(state, action, payload) {
         next.products[existingIdx] = { ...next.products[existingIdx], ...updatedProd };
       } else {
         next.products.push(updatedProd);
+      }
+
+      if (existingIdx < 0 || delta !== 0) {
+        let currentMutations = [
+          ...(next.stockMutations || next.mutasi_stok || next.moves || [])
+        ];
+        const mutRecord = {
+          id: `mut-${Date.now()}-${prodId}-${Math.floor(Math.random() * 1000)}`,
+          urutan: currentMutations.length + 1,
+          produk_id: prodId,
+          productId: prodId,
+          tanggal: nowIso.slice(0, 10),
+          date: nowIso.slice(0, 10),
+          created_at: nowIso,
+          stok_sebelumnya: prevStock,
+          stok_terbaru: newStock,
+          perubahan: delta,
+          jumlah: Math.abs(delta),
+          jenis: existingIdx >= 0 ? 'Edit Produk' : 'Tambah Produk',
+          catatan: existingIdx >= 0 ? `Update stok produk ${updatedProd.nama}: ${prevStock} ml ➔ ${newStock} ml` : `Produk baru ${updatedProd.nama} dengan stok awal ${newStock} ml`
+        };
+        currentMutations.unshift(mutRecord);
+        next.stockMutations = currentMutations;
+        next.mutasi_stok = currentMutations;
+        next.moves = currentMutations;
       }
       break;
     }

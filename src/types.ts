@@ -12,6 +12,8 @@ export type Product = {
   status?: string;
   last_updated?: string;
   created_at?: string;
+  active?: boolean;
+  aktif?: boolean;
 };
 
 export type Sale = {
@@ -23,6 +25,8 @@ export type Sale = {
   notes: string | null;
   status?: string;
   created_at: string;
+  jamu_terjual_ml?: number;
+  restok_ml?: number;
 };
 
 export type SaleItem = {
@@ -36,4 +40,20 @@ export type SaleItem = {
 };
 
 export type ViewName = "dashboard" | "sales" | "inventory" | "history" | "reports" | "settings";
+
+export type StockMutation = {
+  id: string;
+  urutan?: number;
+  produk_id: string;
+  productId?: string;
+  tanggal: string;
+  created_at: string;
+  stok_sebelumnya: number;
+  stok_terbaru: number;
+  perubahan: number;
+  jumlah: number;
+  jenis: string;
+  catatan?: string | null;
+  payload?: any;
+};
 

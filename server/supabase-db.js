@@ -11,8 +11,10 @@ let localRevision = 1;
  * Dapatkan konfigurasi Supabase dari environment (Tanpa hardcoded key)
  */
 export function getSupabaseConfig(env = {}) {
-  const url = (env.SUPABASE_URL || (typeof process !== 'undefined' ? process.env?.SUPABASE_URL : '') || '').trim().replace(/\/$/, '');
-  const key = (env.SUPABASE_SERVICE_ROLE_KEY || (typeof process !== 'undefined' ? process.env?.SUPABASE_SERVICE_ROLE_KEY : '') || '').trim();
+  const urlVal = env && env.SUPABASE_URL !== undefined ? env.SUPABASE_URL : (typeof process !== 'undefined' ? process.env?.SUPABASE_URL : '');
+  const keyVal = env && env.SUPABASE_SERVICE_ROLE_KEY !== undefined ? env.SUPABASE_SERVICE_ROLE_KEY : (typeof process !== 'undefined' ? process.env?.SUPABASE_SERVICE_ROLE_KEY : '');
+  const url = (urlVal || '').trim().replace(/\/$/, '');
+  const key = (keyVal || '').trim();
   const configured = Boolean(url && key);
   return { url, key, configured };
 }
@@ -20,18 +22,18 @@ export function getSupabaseConfig(env = {}) {
 /**
  * Panggil REST RPC gambirono_jamu_storage pada Supabase
  * Endpoint: ${SUPABASE_URL}/rest/v1/rpc/gambirono_jamu_storage
- * Headers:
- *   Content-Type: application/json
- *   apikey: SUPABASE_SERVICE_ROLE_KEY
- *   Authorization: Bearer SUPABASE_SERVICE_ROLE_KEY
- * Body: { operation, args }
  */
 export async function callJamuStorage(operation, args = [], env = {}) {
   const { url, key, configured } = getSupabaseConfig(env);
 
-  // Jika Supabase belum dikonfigurasi di server, gunakan fallback in-memory untuk demo/preview
+  // Jika Supabase belum dikonfigurasi di server
   if (!configured) {
-    return handleLocalFallback(operation, args);
+    if (typeof process !== 'undefined' && process.env?.TEST_MOCK === 'true') {
+      return handleLocalFallback(operation, args);
+    }
+    const err = new Error('Konfigurasi database server belum lengkap. SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diatur di Cloudflare Functions.');
+    err.status = 503;
+    throw err;
   }
 
   const endpoint = `${url}/rest/v1/rpc/gambirono_jamu_storage`;
@@ -41,37 +43,34 @@ export async function callJamuStorage(operation, args = [], env = {}) {
     'Authorization': `Bearer ${key}`
   };
 
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ operation, args })
-    });
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ operation, args })
+  });
 
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
-
-    const errText = await res.text();
-
-    // Jika terjadi safeupdate error (DELETE requires a WHERE clause) dari RPC di PostgreSQL,
-    // jalankan pembaruan langsung ke tabel gambirono terpisah menggunakan query ber-WHERE yang aman
-    if (operation === 'update' && errText.includes('DELETE requires a WHERE clause')) {
-      return await handleDirectTableUpdate(url, headers, args);
-    }
-
-    // Bila RPC belum dibuat di Supabase (misal SQL 003_Gambirono_Isolated_Database.sql belum dijalankan di SQL Editor)
-    if (res.status === 404 || errText.includes('could not find the function') || errText.includes('PGRST202')) {
-      console.warn('[GambironoStorage] RPC gambirono_jamu_storage belum ditemukan di Supabase. Jalankan 003_Gambirono_Isolated_Database.sql di SQL Editor.');
-      return handleLocalFallback(operation, args);
-    }
-
-    throw new Error(`Supabase RPC Error (${res.status}): ${errText}`);
-  } catch (err) {
-    console.warn('[GambironoStorage] Gagal terhubung ke RPC Supabase Gambirono, memakai fallback memori:', err.message);
-    return handleLocalFallback(operation, args);
+  if (res.ok) {
+    const data = await res.json();
+    return data;
   }
+
+  const errText = await res.text();
+
+  // Jika terjadi safeupdate error dari RPC di PostgreSQL
+  // if (operation === 'update' && errText.includes('DELETE requires a WHERE clause')) {
+  //   return await handleDirectTableUpdate(url, headers, args);
+  // }
+
+  // Jika RPC belum ada di Supabase
+  if (res.status === 404 || errText.includes('could not find the function') || errText.includes('PGRST202')) {
+    const err = new Error('Fungsi RPC gambirono_jamu_storage belum dibuat di Supabase. Jalankan file SQL 003_Gambirono_Isolated_Database.sql dan 004_Gambirono_ML_Reconciliation.sql di SQL Editor.');
+    err.status = 500;
+    throw err;
+  }
+
+  const err = new Error(`Supabase Database Error (${res.status}): ${errText}`);
+  err.status = res.status || 500;
+  throw err;
 }
 
 /**
@@ -84,17 +83,21 @@ async function handleDirectTableUpdate(url, headers, args) {
 
   // 1. Periksa revisi di gambirono_jamu_meta
   const metaRes = await fetch(`${url}/rest/v1/gambirono_jamu_meta?id=eq.1`, { headers });
-  if (!metaRes.ok) return { changes: 0 };
+  if (!metaRes.ok) {
+    const err = new Error(`Gagal membaca metadata Supabase (HTTP ${metaRes.status})`);
+    err.status = metaRes.status;
+    throw err;
+  }
   const metaRows = await metaRes.json();
   const currentMeta = metaRows[0];
   if (!currentMeta || Number(currentMeta.revision) !== expectedRev) {
-    return { changes: 0 }; // Konflik revisi!
+    return { changes: 0 }; // Konflik revisi
   }
 
   const newRevision = expectedRev + 1;
 
   // 2. Update gambirono_jamu_meta
-  await fetch(`${url}/rest/v1/gambirono_jamu_meta?id=eq.1`, {
+  const metaPatchRes = await fetch(`${url}/rest/v1/gambirono_jamu_meta?id=eq.1`, {
     method: 'PATCH',
     headers,
     body: JSON.stringify({
@@ -103,8 +106,11 @@ async function handleDirectTableUpdate(url, headers, args) {
       extra: nextState.extra || currentMeta.extra
     })
   });
+  if (!metaPatchRes.ok) {
+    throw new Error(`Gagal memperbarui metadata Supabase (HTTP ${metaPatchRes.status})`);
+  }
 
-  // 3. Masukkan transaksi baru (jika ada) ke public.gambirono_transaksi_penjualan
+  // 3. Masukkan transaksi baru ke public.gambirono_transaksi_penjualan
   const sales = nextState.sales || nextState.transactions || [];
   if (sales.length > 0) {
     for (const trx of sales) {
@@ -116,17 +122,22 @@ async function handleDirectTableUpdate(url, headers, args) {
         status: trx.status === 'Tercatat' ? 'valid' : (trx.status || 'valid'),
         total: Number(trx.total) || 0,
         catatan: trx.note || trx.catatan || '',
+        jamu_terjual_ml: Math.max(0, Number(trx.jamu_terjual_ml || (trx.payload && trx.payload.jamu_terjual_ml) || 0)),
+        restok_ml: Math.max(0, Number(trx.restok_ml || (trx.payload && trx.payload.restok_ml) || 0)),
         payload: trx.payload || trx
       };
       if (trx.urutan && Number(trx.urutan) > 0) {
         bodyObj.urutan = Number(trx.urutan);
       }
 
-      await fetch(`${url}/rest/v1/gambirono_transaksi_penjualan`, {
+      const trxRes = await fetch(`${url}/rest/v1/gambirono_transaksi_penjualan`, {
         method: 'POST',
         headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
         body: JSON.stringify(bodyObj)
       });
+      if (!trxRes.ok) {
+        throw new Error(`Gagal menyimpan transaksi ke gambirono_transaksi_penjualan (HTTP ${trxRes.status})`);
+      }
     }
   }
 
@@ -136,10 +147,10 @@ async function handleDirectTableUpdate(url, headers, args) {
     for (const s of stockEntries) {
       const prodId = s.productId || s.produk_id;
       const date = s.date || s.tanggal;
-      const qty = Number(s.qty !== undefined ? s.qty : (s.jumlah !== undefined ? s.jumlah : s.stock)) || 0;
-      const statusEnum = qty > 2 ? 'safe' : 'low';
+      const qty = Number(s.jumlah !== undefined ? s.jumlah : (s.qty !== undefined ? s.qty : s.stock)) || 0;
+      const statusEnum = qty > 200 ? 'safe' : 'low';
       if (prodId && date) {
-        await fetch(`${url}/rest/v1/gambirono_stok_harian?on_conflict=produk_id,tanggal`, {
+        const stockRes = await fetch(`${url}/rest/v1/gambirono_stok_harian?on_conflict=produk_id,tanggal`, {
           method: 'POST',
           headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
           body: JSON.stringify({
@@ -152,6 +163,9 @@ async function handleDirectTableUpdate(url, headers, args) {
             payload: s.payload || { stock: qty, status: statusEnum }
           })
         });
+        if (!stockRes.ok) {
+          throw new Error(`Gagal menyimpan stok ke gambirono_stok_harian (HTTP ${stockRes.status})`);
+        }
       }
     }
   }
@@ -173,11 +187,45 @@ async function handleDirectTableUpdate(url, headers, args) {
     }
   }
 
+  // 6. Masukkan mutasi stok ke public.gambirono_mutasi_stok
+  const moves = nextState.stockMutations || nextState.mutasi_stok || nextState.moves || [];
+  if (moves.length > 0) {
+    for (const m of moves) {
+      if (!m || !m.id) continue;
+      const prodId = m.produk_id || m.productId;
+      if (!prodId) continue;
+
+      const mutObj = {
+        id: m.id,
+        urutan: Number(m.urutan) || 0,
+        produk_id: prodId,
+        tanggal: (m.tanggal || m.date || new Date().toISOString()).slice(0, 10),
+        created_at: m.created_at || new Date().toISOString(),
+        stok_sebelumnya: Number(m.stok_sebelumnya) || 0,
+        stok_terbaru: Number(m.stok_terbaru) || 0,
+        perubahan: Number(m.perubahan) || 0,
+        jumlah: Math.abs(Number(m.perubahan) || 0),
+        jenis: m.jenis || 'Stok Harian',
+        catatan: m.catatan || m.notes || '',
+        payload: m.payload || {}
+      };
+
+      const mutRes = await fetch(`${url}/rest/v1/gambirono_mutasi_stok`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify(mutObj)
+      });
+      if (!mutRes.ok) {
+        console.error(`[SupabaseDB] Gagal menyimpan mutasi stok (HTTP ${mutRes.status})`);
+      }
+    }
+  }
+
   return { changes: 1 };
 }
 
 /**
- * Fallback in-memory handler dengan kontrak persis seperti RPC SQL gambirono_jamu_storage
+ * Fallback in-memory handler untuk unit test lokal
  */
 function handleLocalFallback(operation, args) {
   if (operation === 'read') {

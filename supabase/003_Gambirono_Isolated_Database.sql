@@ -23,7 +23,7 @@ create table if not exists public.gambirono_produk (
   payload jsonb not null default '{}'::jsonb,
   kode text unique not null,
   nama text not null,
-  satuan text not null default 'BOTOL',
+  satuan text not null default 'ML',
   harga numeric(14,2) not null default 0 check (harga >= 0),
   aktif boolean not null default true
 );
