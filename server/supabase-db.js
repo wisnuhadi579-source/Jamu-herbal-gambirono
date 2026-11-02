@@ -63,8 +63,15 @@ export async function callJamuStorage(operation, args = [], env = {}) {
 
   // Jika RPC belum ada di Supabase
   if (res.status === 404 || errText.includes('could not find the function') || errText.includes('PGRST202')) {
-    const err = new Error('Fungsi RPC gambirono_jamu_storage belum dibuat di Supabase. Jalankan file SQL 003_Gambirono_Isolated_Database.sql dan 004_Gambirono_ML_Reconciliation.sql di SQL Editor.');
+    const err = new Error('Fungsi RPC gambirono_jamu_storage belum dibuat di Supabase. Jalankan seluruh file SQL di folder supabase (003 sampai 008) di SQL Editor.');
     err.status = 500;
+    throw err;
+  }
+
+  // Jika kolom tabel belum lengkap (Error 42703)
+  if (errText.includes('42703') || errText.includes('column') && errText.includes('does not exist')) {
+    const err = new Error('Struktur database belum lengkap. Jalankan file SQL 009_Gambirono_Add_Sales_Volume_Columns.sql di SQL Editor Supabase untuk menambahkan kolom volume jamu.');
+    err.status = 400;
     throw err;
   }
 

@@ -217,21 +217,29 @@ export function applyAction(state, action, payload) {
         ...(next.stockMutations || next.mutasi_stok || next.moves || [])
       ];
 
+      // Hitung total stok sebelumnya
+      const totalPrevStock = next.products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+
       Object.entries(items).forEach(([prodId, amount]) => {
         const qty = Math.max(0, Number(amount) || 0);
-        // Cari produk berdasarkan ID, kode, code, atau sku
         const p = (next.products || []).find(x =>
           x.id === prodId ||
           x.kode === prodId ||
           x.code === prodId ||
           x.sku === prodId ||
-          (prodId === 'ML' && (x.kode === 'ML' || x.sku === 'MADU LANANG' || x.nama === 'Madu Lanang' || x.name === 'Madu Lanang')) ||
+          (prodId === 'ML' && (x.kode === 'ML' || x.sku === 'MADU LANANG' || x.nama === 'Madu Lanang')) ||
           (x.id === 'bd9a7a65-bcc0-5ae9-ba2d-2790cc7ab274' && (prodId === 'prod-15' || prodId === 'ML'))
         );
+        
         const resolvedProdId = p ? p.id : prodId;
+        const prodName = p ? p.nama : (p?.name || prodId);
+        const prodCode = p ? (p.kode || p.code || p.sku) : prodId;
+        
         const prevStock = p ? (Number(p.stock) || 0) : 0;
         const delta = qty - prevStock;
-        const userStatus = statuses[prodId] || (p && statuses[p.id]) || (qty > (p?.min_stock || 200) ? 'Stok aman' : 'Stok menipis');
+        // Global 1000ml rule for status
+        const autoStatus = qty < 1000 ? 'Stok menipis' : 'Stok aman';
+        const userStatus = autoStatus;
 
         if (p) {
           p.stock = qty;
@@ -240,18 +248,18 @@ export function applyAction(state, action, payload) {
           if (!p.payload) p.payload = {};
           p.payload.stock = qty;
           p.payload.status = userStatus;
+          p.payload.last_updated = date;
         }
 
-        // Cari atau perbarui entri stok harian untuk produk dan tanggal ini
         const matchIdx = currentStocks.findIndex(s => {
           const sPid = s.produk_id || s.productId;
-          const isSameProd = sPid === resolvedProdId || (p && (sPid === p.id || sPid === p.kode || sPid === p.code || sPid === p.sku));
+          const isSameProd = sPid === resolvedProdId;
           const sDate = s.tanggal || s.date;
           return isSameProd && sDate === date;
         });
 
         const record = {
-          id: matchIdx >= 0 ? currentStocks[matchIdx].id : `stock-${Date.now()}-${resolvedProdId}`,
+          id: matchIdx >= 0 ? currentStocks[matchIdx].id : `stock-${Date.now()}-${resolvedProdId}-${Math.floor(Math.random() * 1000)}`,
           urutan: matchIdx >= 0 ? (currentStocks[matchIdx].urutan || 1) : (currentStocks.length + 1),
           produk_id: resolvedProdId,
           productId: resolvedProdId,
@@ -261,7 +269,11 @@ export function applyAction(state, action, payload) {
           qty: qty,
           stock: qty,
           status: userStatus,
-          payload: { stock: qty, status: userStatus }
+          payload: { 
+            stock: qty, 
+            status: userStatus,
+            updated_at: nowIso
+          }
         };
 
         if (matchIdx >= 0) {
@@ -270,7 +282,6 @@ export function applyAction(state, action, payload) {
           currentStocks.unshift(record);
         }
 
-        // Catat mutasi stok hanya jika ada perubahan nilai
         if (delta !== 0) {
           const mutRecord = {
             id: `mut-${Date.now()}-${resolvedProdId}-${Math.floor(Math.random() * 1000)}`,
@@ -285,13 +296,40 @@ export function applyAction(state, action, payload) {
             perubahan: delta,
             jumlah: Math.abs(delta),
             jenis: 'Stok Harian',
-            catatan: `Update stok harian: ${prevStock} ml ➔ ${qty} ml (${delta >= 0 ? '+' : ''}${delta} ml)`
+            catatan: `Update stok ${prodName} (${prodCode}): ${prevStock} ml ➔ ${qty} ml (${delta >= 0 ? '+' : ''}${delta} ml)`,
+            payload: {
+              stok_sebelumnya: prevStock,
+              stok_terbaru: qty,
+              perubahan: delta,
+              created_at: nowIso
+            }
           };
           currentMutations.unshift(mutRecord);
         }
       });
 
-      // Terapkan ke semua nama properti agar konsisten
+      // Hitung total stok terbaru
+      const totalNewStock = next.products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
+      const deltaTotal = totalNewStock - totalPrevStock;
+
+      // Simpan ringkasan riwayat total stok toko
+      const summaryRecord = {
+        id: `total-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        tanggal: date,
+        waktu_update: nowIso,
+        total_stok_sebelumnya: totalPrevStock,
+        total_stok_terbaru: totalNewStock,
+        perubahan_stok: deltaTotal,
+        jenis_perubahan: deltaTotal > 0 ? 'Stok bertambah' : (deltaTotal < 0 ? 'Stok berkurang' : 'Tidak berubah'),
+        keterangan: payload.catatan || payload.notes || `Input stok harian ${date}`,
+        batch_id: `batch-${Date.now()}`
+      };
+      next.aggregateStockHistory = [summaryRecord, ...(next.aggregateStockHistory || [])];
+
+      if (currentMutations.length > 500) {
+        currentMutations = currentMutations.slice(0, 500);
+      }
+
       next.dailyStocks = currentStocks;
       next.stockEntries = currentStocks;
       next.stok_harian = currentStocks;
@@ -309,6 +347,7 @@ export function applyAction(state, action, payload) {
       const newStock = Number(payload.stock !== undefined ? payload.stock : (existingIdx >= 0 ? prevStock : 0));
       const delta = newStock - prevStock;
       const nowIso = new Date().toISOString();
+      const autoStatus = newStock < 1000 ? 'Stok menipis' : 'Stok aman';
       
       const updatedProd = {
         id: prodId,
@@ -325,13 +364,15 @@ export function applyAction(state, action, payload) {
         sell_price: Number(payload.harga || payload.price || payload.sell_price || 0),
         buy_price: Number(payload.buy_price || 0),
         stock: newStock,
-        min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 200),
+        status: autoStatus,
+        min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 1000),
         aktif: payload.aktif !== undefined ? Boolean(payload.aktif) : true,
         active: payload.aktif !== undefined ? Boolean(payload.aktif) : true,
         payload: {
           buy_price: Number(payload.buy_price || 0),
           stock: newStock,
-          min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 200)
+          status: autoStatus,
+          min_stock: Number(payload.min_stock !== undefined ? payload.min_stock : 1000)
         }
       };
 

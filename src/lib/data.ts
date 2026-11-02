@@ -143,23 +143,35 @@ function parseStateResponse(rawState: any, rev: number) {
     };
   });
 
+  const aggregateStockHistory: AggregateStockHistory[] = (state.aggregateStockHistory || state.riwayat_stok || []).map((h: any) => ({
+    id: h.id,
+    tanggal: String(h.tanggal || "").slice(0, 10),
+    waktu_update: h.waktu_update || h.created_at || `${h.tanggal}T12:00:00Z`,
+    total_stok_sebelumnya: Number(h.total_stok_sebelumnya || 0),
+    total_stok_terbaru: Number(h.total_stok_terbaru || 0),
+    perubahan_stok: Number(h.perubahan_stok !== undefined ? h.perubahan_stok : (h.total_stok_terbaru - h.total_stok_sebelumnya)),
+    jenis_perubahan: String(h.jenis_perubahan || ""),
+    keterangan: String(h.keterangan || h.catatan || ""),
+    batch_id: String(h.batch_id || "")
+  }));
+
   stockMutations.sort((a, b) => {
     const ca = a.created_at || `${a.tanggal}T12:00:00Z`;
     const cb = b.created_at || `${b.tanggal}T12:00:00Z`;
     return cb.localeCompare(ca);
   });
 
-  return { products, sales, stockMutations, stockEntries, revision: currentRevision, canEdit: true, rawState: state };
+  aggregateStockHistory.sort((a, b) => b.waktu_update.localeCompare(a.waktu_update));
+
+  return { products, sales, stockMutations, stockEntries, aggregateStockHistory, revision: currentRevision, canEdit: true, rawState: state };
 }
 
-/**
- * Fetch full store from /api/store
- */
 export async function fetchStore(): Promise<{
   products: Product[];
   sales: Sale[];
   stockMutations: StockMutation[];
   stockEntries: any[];
+  aggregateStockHistory: AggregateStockHistory[];
   revision: number;
   canEdit: boolean;
 }> {
@@ -185,19 +197,18 @@ export async function fetchStore(): Promise<{
     sales: parsed.sales, 
     stockMutations: parsed.stockMutations, 
     stockEntries: parsed.stockEntries,
+    aggregateStockHistory: parsed.aggregateStockHistory,
     revision: parsed.revision, 
     canEdit: true 
   };
 }
 
-/**
- * Dispatch business action to /api/store
- */
 export async function sendStoreAction(action: string, payload: unknown): Promise<{
   products: Product[];
   sales: Sale[];
   stockMutations: StockMutation[];
   stockEntries: any[];
+  aggregateStockHistory: AggregateStockHistory[];
   revision: number;
   canEdit: boolean;
 }> {

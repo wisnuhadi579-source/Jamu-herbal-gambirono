@@ -91,14 +91,16 @@ function normalizeState(state) {
     const forceInactive = isInactiveCode(prodCode, p.id, prodName);
     const isAct = forceInactive ? false : (p.active !== undefined ? Boolean(p.active) : (p.aktif !== undefined ? Boolean(p.aktif) : true));
 
-    // Prefer snapshot from stok_harian, then payload, then p.stock
+    // Only trust snapshots from stok_harian (stockMap). 
+    // If no snapshot exists for this product, it defaults to 0 ml.
     let currentStock = stockMap[p.id];
     if (currentStock === undefined) currentStock = stockMap[prodCode];
-    if (currentStock === undefined) currentStock = p.payload?.stock;
-    if (currentStock === undefined) currentStock = p.stock;
     
     const finalStock = Number(currentStock || 0);
-    const lastUpdate = dateMap[p.id] || p.last_updated || null;
+    const lastUpdate = dateMap[p.id] || null;
+
+    // Global 1000ml rule for status
+    const autoStatus = finalStock < 1000 ? 'Stok menipis' : 'Stok aman';
 
     return {
       id: p.id,
@@ -116,12 +118,14 @@ function normalizeState(state) {
       buy_price: Number(p.buy_price || 0),
       stock: finalStock,
       min_stock: Number(p.min_stock) || 200,
+      status: autoStatus,
       active: isAct,
       aktif: isAct,
       last_updated: lastUpdate,
       payload: {
         ...(p.payload || {}),
         stock: finalStock,
+        status: autoStatus,
         active: isAct,
         aktif: isAct
       }
@@ -177,6 +181,8 @@ function normalizeState(state) {
 
   const normalizedStocks = stockEntries.map(s => {
     const pid = resolveProductId(s.productId || s.produk_id);
+    const qtyVal = Number(s.qty !== undefined ? s.qty : s.jumlah) || 0;
+    const autoStatus = qtyVal < 1000 ? 'Stok menipis' : 'Stok aman';
     return {
       id: s.id,
       urutan: s.urutan || 0,
@@ -184,12 +190,30 @@ function normalizeState(state) {
       produk_id: pid,
       date: s.date || s.tanggal,
       tanggal: s.tanggal || s.date,
-      qty: Number(s.qty !== undefined ? s.qty : s.jumlah) || 0,
-      jumlah: Number(s.jumlah !== undefined ? s.jumlah : s.qty) || 0,
-      status: s.status === 'safe' ? 'Stok aman' : (s.status === 'low' ? 'Stok tipis' : s.status),
-      payload: s.payload || {}
+      qty: qtyVal,
+      jumlah: qtyVal,
+      status: autoStatus,
+      payload: {
+        ...(s.payload || {}),
+        status: autoStatus,
+        stock: qtyVal
+      }
     };
   });
+
+  const aggregateHistory = (state.aggregateStockHistory || state.riwayat_stok || []).map(h => ({
+    id: h.id,
+    tanggal: h.tanggal || (h.waktu_update || '').slice(0, 10),
+    waktu_update: h.waktu_update || h.created_at || `${h.tanggal}T12:00:00Z`,
+    total_stok_sebelumnya: Number(h.total_stok_sebelumnya || 0),
+    total_stok_terbaru: Number(h.total_stok_terbaru || 0),
+    perubahan_stok: Number(h.perubahan_stok !== undefined ? h.perubahan_stok : (h.total_stok_terbaru - h.total_stok_sebelumnya)),
+    jenis_perubahan: h.jenis_perubahan || (Number(h.perubahan_stok) > 0 ? 'Stok bertambah' : (Number(h.perubahan_stok) < 0 ? 'Stok berkurang' : 'Tidak berubah')),
+    keterangan: h.keterangan || h.catatan || '',
+    batch_id: h.batch_id || ''
+  }));
+
+  aggregateHistory.sort((a, b) => b.waktu_update.localeCompare(a.waktu_update));
 
   return {
     schemaVersion: 1,
@@ -203,6 +227,8 @@ function normalizeState(state) {
     moves,
     stockMutations: moves,
     mutasi_stok: moves,
+    aggregateStockHistory: aggregateHistory,
+    riwayat_stok: aggregateHistory,
     settings: state.settings || { name: 'Jamu Herbal Gambirono', zone: 'Asia/Jakarta' },
     extra: state.extra || {}
   };
@@ -313,6 +339,7 @@ export async function updateStore({ revision, action, payload, state: directStat
   // Siapkan schema 1 payload untuk disimpan ke RPC
   const formattedProducts = (nextState.products || []).map(p => {
     const stockVal = Number(p.stock !== undefined ? p.stock : 0);
+    const autoStatus = stockVal < 1000 ? 'Stok menipis' : 'Stok aman';
     return {
       id: p.id,
       urutan: p.urutan || 0,
@@ -333,8 +360,9 @@ export async function updateStore({ revision, action, payload, state: directStat
       payload: {
         ...(p.payload || {}),
         stock: stockVal,
+        status: autoStatus,
         buy_price: Number(p.buy_price || 0),
-        min_stock: Number(p.min_stock || 2)
+        min_stock: Number(p.min_stock || 1000)
       }
     };
   });
@@ -344,6 +372,7 @@ export async function updateStore({ revision, action, payload, state: directStat
     const qtyVal = Number(s.jumlah !== undefined ? s.jumlah : (s.qty !== undefined ? s.qty : s.stock)) || 0;
     const prodId = s.produk_id || s.productId;
     const dateVal = s.tanggal || s.date;
+    const autoStatus = qtyVal < 1000 ? 'Stok menipis' : 'Stok aman';
     return {
       id: s.id,
       urutan: s.urutan || 0,
@@ -354,8 +383,8 @@ export async function updateStore({ revision, action, payload, state: directStat
       jumlah: qtyVal,
       qty: qtyVal,
       stock: qtyVal,
-      status: (s.status === 'low' || s.status === 'Stok menipis' || qtyVal <= 2) ? 'low' : 'safe',
-      payload: s.payload || { stock: qtyVal, status: qtyVal > 2 ? 'Stok aman' : 'Stok menipis' }
+      status: autoStatus === 'Stok menipis' ? 'low' : 'safe',
+      payload: s.payload || { stock: qtyVal, status: autoStatus }
     };
   });
 
@@ -398,12 +427,13 @@ export async function updateStore({ revision, action, payload, state: directStat
   const formattedMoves = (nextState.stockMutations || nextState.mutasi_stok || nextState.moves || []).map(m => {
     const prodId = m.produk_id || m.productId;
     const dateVal = String(m.tanggal || m.date || (m.created_at || '').slice(0, 10) || new Date().toISOString().slice(0, 10)).slice(0, 10);
-    const createdAt = String(m.created_at || `${dateVal}T12:00:00Z`);
-    const prevStock = Number(m.stok_sebelumnya || 0);
-    const newStock = Number(m.stok_terbaru || 0);
-    const delta = Number(m.perubahan !== undefined ? m.perubahan : (newStock - prevStock));
+    const createdAt = String(m.created_at || (m.payload && m.payload.created_at) || `${dateVal}T12:00:00Z`);
+    const prevStock = Number(m.stok_sebelumnya !== undefined ? m.stok_sebelumnya : ((m.payload && m.payload.stok_sebelumnya) || 0));
+    const newStock = Number(m.stok_terbaru !== undefined ? m.stok_terbaru : ((m.payload && m.payload.stok_terbaru) || m.jumlah || m.qty || 0));
+    const delta = Number(m.perubahan !== undefined ? m.perubahan : ((m.payload && m.payload.perubahan) !== undefined ? m.payload.perubahan : (newStock - prevStock)));
+    
     return {
-      id: String(m.id || `mut-${Date.now()}`),
+      id: String(m.id || `mut-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
       urutan: Number(m.urutan || 0),
       produk_id: prodId,
       productId: prodId,
@@ -415,8 +445,14 @@ export async function updateStore({ revision, action, payload, state: directStat
       perubahan: delta,
       jumlah: Math.abs(delta),
       jenis: String(m.jenis || 'Stok Harian'),
-      catatan: String(m.catatan || m.notes || ''),
-      payload: m.payload || { stok_sebelumnya: prevStock, stok_terbaru: newStock, perubahan: delta }
+      catatan: String(m.catatan || m.notes || m.note || ''),
+      payload: {
+        ...(m.payload || {}),
+        stok_sebelumnya: prevStock,
+        stok_terbaru: newStock,
+        perubahan: delta,
+        created_at: createdAt
+      }
     };
   });
 
@@ -431,14 +467,31 @@ export async function updateStore({ revision, action, payload, state: directStat
     moves: formattedMoves,
     stockMutations: formattedMoves,
     mutasi_stok: formattedMoves,
+    aggregateStockHistory: (nextState.aggregateStockHistory || nextState.riwayat_stok || []).map(h => ({
+      id: h.id,
+      tanggal: h.tanggal,
+      waktu_update: h.waktu_update || new Date().toISOString(),
+      total_stok_sebelumnya: Number(h.total_stok_sebelumnya || 0),
+      total_stok_terbaru: Number(h.total_stok_terbaru || 0),
+      perubahan_stok: Number(h.perubahan_stok || 0),
+      jenis_perubahan: h.jenis_perubahan,
+      keterangan: h.keterangan || '',
+      batch_id: h.batch_id || ''
+    })),
     settings: nextState.settings || { name: 'Jamu Herbal Gambirono', zone: 'Asia/Jakarta' }
   };
 
+  /*
   console.log(`[StoreService] Menyimpan ke RPC (Rev ${expectedRev} -> ${expectedRev + 1}):`);
   console.log(` - Produk: ${formattedProducts.length}`);
   console.log(` - Transaksi: ${formattedSales.length}`);
   console.log(` - Snapshot Stok: ${formattedStocks.length}`);
-  console.log(` - Mutasi Baru: ${formattedMoves.length}`);
+  console.log(` - Mutasi Total: ${formattedMoves.length}`);
+  */
+  
+  if (formattedMoves.length > 0) {
+    // console.log(`   * Mutasi Terakhir: ${formattedMoves[0].catatan}`);
+  }
 
   // Simpan ke Supabase RPC jamu_storage (update)
   const updateRes = await callJamuStorage('update', [

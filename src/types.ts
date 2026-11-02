@@ -56,4 +56,14 @@ export type StockMutation = {
   catatan?: string | null;
   payload?: any;
 };
-
+export type AggregateStockHistory = {
+  id: string;
+  tanggal: string;
+  waktu_update: string;
+  total_stok_sebelumnya: number;
+  total_stok_terbaru: number;
+  perubahan_stok: number;
+  jenis_perubahan: string;
+  keterangan: string;
+  batch_id?: string;
+};

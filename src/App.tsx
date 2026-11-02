@@ -10,7 +10,7 @@ import {
   getProducts, getSales, saveProduct, fetchStore,
   recordStocktake, isSupabaseConfigured
 } from "./lib/data";
-import type { Product, Sale, ViewName, StockMutation } from "./types";
+import type { Product, Sale, ViewName, StockMutation, AggregateStockHistory } from "./types";
 
 const money = (n: number) =>
   new Intl.NumberFormat("id-ID", {
@@ -235,6 +235,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
 
   const [stockMutations, setStockMutations] = useState<StockMutation[]>([]);
+  const [aggregateStockHistory, setAggregateStockHistory] = useState<AggregateStockHistory[]>([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -248,6 +249,9 @@ export default function App() {
       }
       if (store.stockEntries) {
         setDailyStocks(store.stockEntries);
+      }
+      if (store.aggregateStockHistory) {
+        setAggregateStockHistory(store.aggregateStockHistory);
       }
 
       setLoaded(true);
@@ -286,7 +290,7 @@ export default function App() {
     return products.reduce((acc, p) => acc + Number(p.stock || 0), 0);
   }, [products]);
 
-  const lowStock = products.filter(p => p.stock <= p.min_stock);
+  const lowStock = products.filter(p => p.stock < 1000);
   const filteredProducts = sortProductsByOrder(
     products.filter(p =>
       `${p.name} ${p.sku ?? ""} ${p.category ?? ""}`.toLowerCase().includes(search.toLowerCase())
@@ -409,7 +413,7 @@ export default function App() {
     const statusDraft: Record<string, string> = {};
     products.forEach(p => {
       draft[p.id] = p.stock;
-      statusDraft[p.id] = p.status || (p.stock <= p.min_stock ? "Stok menipis" : "Stok aman");
+      statusDraft[p.id] = p.stock < 1000 ? "Stok menipis" : "Stok aman";
     });
     setDailyStockDraft(draft);
     setDailyStatusDraft(statusDraft);
@@ -834,7 +838,7 @@ export default function App() {
               {view === "inventory" && (
                 <InventoryView
                   products={products}
-                  stockMutations={stockMutations}
+                  aggregateHistory={aggregateStockHistory}
                   onAddVariant={openNewProduct}
                   onEdit={openEditProduct}
                 />
@@ -1025,9 +1029,9 @@ export default function App() {
                   const currentVal = dailyStockDraft[p.id];
                   const currentStatus =
                     dailyStatusDraft[p.id] ||
-                    (currentVal !== undefined && Number(currentVal) <= p.min_stock
+                    (currentVal !== undefined && Number(currentVal) < 1000
                       ? "Stok menipis"
-                      : p.status || "Stok aman");
+                      : "Stok aman");
 
                   return (
                     <div key={p.id} className="daily-stock-item">
@@ -1041,6 +1045,8 @@ export default function App() {
                         onChange={e => {
                           const val = e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0);
                           setDailyStockDraft(prev => ({ ...prev, [p.id]: val }));
+                          // Automatically update status draft when value changes
+                          setDailyStatusDraft(prev => ({ ...prev, [p.id]: (val !== "" && Number(val) < 1000) ? "Stok menipis" : "Stok aman" }));
                         }}
                       />
                       <label className="daily-stock-status-label">Status stok</label>
@@ -1636,9 +1642,9 @@ function DashboardView({
         {/* 15 Stock Cards Grid */}
         <div className="stock-grid">
           {sortProductsByOrder(products).map(p => {
-            const isWarning = p.stock <= p.min_stock;
-            const statusText = p.status || (isWarning ? "Stok menipis" : "Stok aman");
-            const statusClass = statusText.toLowerCase().includes("menipis") || isWarning ? "warning" : "safe";
+            const isWarning = p.stock < 1000;
+            const statusText = isWarning ? "Stok menipis" : "Stok aman";
+            const statusClass = isWarning ? "warning" : "safe";
             return (
               <div className={`stock-card ${statusClass}`} key={p.id}>
                 <div className="stock-card-top">
@@ -1655,7 +1661,7 @@ function DashboardView({
                 </div>
                 <div className="stock-card-foot">
                   <span className="stock-card-date">
-                    {p.last_updated || todayIso}
+                    {p.last_updated || "Belum ada input"}
                   </span>
                   <button
                     className="stock-card-edit-btn"
@@ -1844,19 +1850,19 @@ function DashboardView({
 
 function InventoryView({
   products,
-  stockMutations = [],
+  aggregateHistory = [],
   onAddVariant,
   onEdit
 }: {
   products: Product[];
-  stockMutations?: StockMutation[];
+  aggregateHistory?: AggregateStockHistory[];
   onAddVariant: () => void;
   onEdit: (p: Product) => void;
 }) {
   const [historySearch, setHistorySearch] = useState("");
   const [historyDate, setHistoryDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedMutation, setSelectedMutation] = useState<StockMutation | null>(null);
+  const [selectedHistory, setSelectedHistory] = useState<any | null>(null);
   const pageSize = 10;
 
   const totalStockAll = useMemo(() => {
@@ -1874,31 +1880,28 @@ function InventoryView({
     return map;
   }, [products]);
 
-  // Filter and sort mutations
-  const filteredMutations = useMemo(() => {
-    return stockMutations.filter(m => {
-      const p = productMap.get(m.produk_id) || productMap.get(m.productId || "");
-      const pName = p ? p.name : "";
-      const pCode = p ? (p.sku || p.code || "") : "";
-      const searchKey = `${m.produk_id} ${pName} ${pCode} ${m.catatan || ""} ${m.jenis || ""}`.toLowerCase();
+  // Filter and sort aggregate history
+  const filteredHistory = useMemo(() => {
+    return aggregateHistory.filter(h => {
+      const searchKey = `${h.tanggal} ${h.keterangan || ""} ${h.jenis_perubahan || ""}`.toLowerCase();
       
       const matchesSearch = !historySearch || searchKey.includes(historySearch.toLowerCase().trim());
-      const matchesDate = !historyDate || m.tanggal === historyDate;
+      const matchesDate = !historyDate || h.tanggal === historyDate;
 
       return matchesSearch && matchesDate;
     });
-  }, [stockMutations, productMap, historySearch, historyDate]);
+  }, [aggregateHistory, historySearch, historyDate]);
 
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [historySearch, historyDate]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredMutations.length / pageSize));
-  const paginatedMutations = useMemo(() => {
+  const totalPages = Math.max(1, Math.ceil(filteredHistory.length / pageSize));
+  const paginatedHistory = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredMutations.slice(start, start + pageSize);
-  }, [filteredMutations, currentPage, pageSize]);
+    return filteredHistory.slice(start, start + pageSize);
+  }, [filteredHistory, currentPage, pageSize]);
 
   return (
     <section className="inventory-panel">
@@ -1929,9 +1932,9 @@ function InventoryView({
       {/* 3. Product Stock Cards Grid */}
       <div className="inventory-stock-grid">
         {sortProductsByOrder(products).map(p => {
-          const isWarning = p.stock <= p.min_stock;
-          const statusText = p.status || (isWarning ? "Stok menipis" : "Stok aman");
-          const statusClass = statusText.toLowerCase().includes("menipis") || isWarning ? "warning" : "safe";
+          const isWarning = p.stock < 1000;
+          const statusText = isWarning ? "Stok menipis" : "Stok aman";
+          const statusClass = isWarning ? "warning" : "safe";
           const displayCode = p.sku || p.code || p.name;
           const displayDate = p.last_updated || "Belum ada input";
 
@@ -1974,8 +1977,8 @@ function InventoryView({
       <div className="panel" style={{ marginTop: 28 }}>
         <div className="panel-heading" style={{ marginBottom: 16 }}>
           <div>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1f3323" }}>Riwayat Update Stok</h2>
-            <p style={{ fontSize: "12px", color: "#627564", margin: "2px 0 0" }}>Pencatatan riwayat setiap perubahan dan penyesuaian stok harian jamu herbal</p>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1f3323" }}>Riwayat Total Stok Toko</h2>
+            <p style={{ fontSize: "12px", color: "#627564", margin: "2px 0 0" }}>Rekap perubahan total keseluruhan stok 14 produk jamu herbal Gambirono</p>
           </div>
         </div>
 
@@ -1986,7 +1989,7 @@ function InventoryView({
               <input
                 value={historySearch}
                 onChange={e => setHistorySearch(e.target.value)}
-                placeholder="Cari kode atau nama produk…"
+                placeholder="Cari keterangan atau jenis perubahan…"
               />
             </div>
             <input
@@ -2007,7 +2010,7 @@ function InventoryView({
             )}
           </div>
           <span style={{ fontSize: "11.5px", color: "#596e5c", fontWeight: 600, whiteSpace: "nowrap" }}>
-            Menampilkan {paginatedMutations.length} dari {filteredMutations.length} riwayat update stok
+            Menampilkan {paginatedHistory.length} dari {filteredHistory.length} riwayat total stok
           </span>
         </div>
 
@@ -2018,27 +2021,22 @@ function InventoryView({
                 <th style={{ width: 40 }}>#</th>
                 <th>TANGGAL UPDATE</th>
                 <th>WAKTU UPDATE</th>
-                <th>NAMA PRODUK</th>
-                <th style={{ textAlign: "right" }}>STOK SEBELUMNYA</th>
-                <th style={{ textAlign: "right" }}>STOK TERBARU</th>
-                <th style={{ textAlign: "center" }}>PERUBAHAN STOK</th>
+                <th style={{ textAlign: "right" }}>TOTAL STOK SEBELUMNYA (ML)</th>
+                <th style={{ textAlign: "right" }}>TOTAL STOK TERBARU (ML)</th>
+                <th style={{ textAlign: "center" }}>PERUBAHAN STOK (ML)</th>
                 <th>JENIS PERUBAHAN</th>
                 <th>KETERANGAN</th>
                 <th style={{ textAlign: "right" }}>AKSI</th>
               </tr>
             </thead>
             <tbody>
-              {paginatedMutations.length > 0 ? (
-                paginatedMutations.map((m, idx) => {
-                  const p = productMap.get(m.produk_id) || productMap.get(m.productId || "");
-                  const prodName = p ? p.name : (m.produk_id || "Produk");
-                  const prodCode = p ? (p.sku || p.code || "") : "";
-
-                  let dateStr = m.tanggal;
+              {paginatedHistory.length > 0 ? (
+                paginatedHistory.map((h, idx) => {
+                  let dateStr = h.tanggal;
                   let timeStr = "12:00:00 WIB";
 
                   try {
-                    const dt = new Date(m.created_at || `${m.tanggal}T12:00:00Z`);
+                    const dt = new Date(h.waktu_update || `${h.tanggal}T12:00:00Z`);
                     if (!isNaN(dt.getTime())) {
                       dateStr = new Intl.DateTimeFormat("id-ID", {
                         day: "numeric",
@@ -2058,26 +2056,18 @@ function InventoryView({
                     // ignore
                   }
 
-                  const delta = m.perubahan !== undefined ? m.perubahan : (m.stok_terbaru - m.stok_sebelumnya);
+                  const delta = h.perubahan_stok;
 
                   return (
-                    <tr key={m.id || idx}>
+                    <tr key={h.id || idx}>
                       <td style={{ fontSize: "11px", color: "#8a968b" }}>{(currentPage - 1) * pageSize + idx + 1}</td>
                       <td style={{ fontWeight: 600, fontSize: "12px", color: "#253628" }}>{dateStr}</td>
                       <td style={{ fontSize: "11px", color: "#617363" }}>{timeStr}</td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span className="inv-status-pill safe" style={{ padding: "2px 6px", fontSize: "10px" }}>
-                            {prodCode || "JH"}
-                          </span>
-                          <strong style={{ fontSize: "12px", color: "#1f3323" }}>{prodName}</strong>
-                        </div>
-                      </td>
                       <td style={{ textAlign: "right", fontSize: "12px" }}>
-                        {(m.stok_sebelumnya || 0).toLocaleString("id-ID")} ml
+                        {(h.total_stok_sebelumnya || 0).toLocaleString("id-ID")} ml
                       </td>
                       <td style={{ textAlign: "right", fontSize: "12px", fontWeight: 700, color: "#1f4a2b" }}>
-                        {(m.stok_terbaru || 0).toLocaleString("id-ID")} ml
+                        {(h.total_stok_terbaru || 0).toLocaleString("id-ID")} ml
                       </td>
                       <td style={{ textAlign: "center" }}>
                         <span
@@ -2087,26 +2077,30 @@ function InventoryView({
                             borderRadius: 6,
                             fontSize: "11px",
                             fontWeight: 700,
-                            background: delta > 0 ? "#eaf6ea" : delta < 0 ? "#fde8e8" : "#f1f5f1",
-                            color: delta > 0 ? "#1b6928" : delta < 0 ? "#b91c1c" : "#4f6052"
+                            background: delta > 0 ? "#f0fdf4" : delta < 0 ? "#fef2f2" : "#f1f5f1",
+                            color: delta > 0 ? "#15803d" : delta < 0 ? "#b91c1c" : "#4f6052"
                           }}
                         >
-                          {delta > 0 ? `+${delta.toLocaleString("id-ID")} ml` : `${delta.toLocaleString("id-ID")} ml`}
+                          {delta > 0 ? `+${delta.toLocaleString("id-ID")} ml` : delta < 0 ? `${delta.toLocaleString("id-ID")} ml` : `0 ml`}
                         </span>
                       </td>
                       <td>
-                        <span className="trx-status-pill" style={{ background: "#f2f7f1", border: "1px solid #d8e5d7", color: "#2c4832" }}>
-                          {m.jenis || "Stok Harian"}
+                        <span className="trx-status-pill" style={{ 
+                          background: delta > 0 ? "#dcfce7" : delta < 0 ? "#fee2e2" : "#f1f5f1", 
+                          color: delta > 0 ? "#15803d" : delta < 0 ? "#b91c1c" : "#4f6052",
+                          border: "none"
+                        }}>
+                          {h.jenis_perubahan || "Tidak berubah"}
                         </span>
                       </td>
                       <td style={{ fontSize: "11.5px", color: "#516353", maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {m.catatan || "Update stok"}
+                        {h.keterangan || "Input stok harian"}
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <button
                           type="button"
                           className="trx-detail-btn"
-                          onClick={() => setSelectedMutation(m)}
+                          onClick={() => setSelectedHistory(h)}
                         >
                           Detail ↗
                         </button>
@@ -2155,29 +2149,27 @@ function InventoryView({
         )}
       </div>
 
-      {/* Modal Detail Mutasi Stok */}
-      {selectedMutation && (
+      {/* Modal Detail Mutasi Stok (Sekarang Detail Riwayat Stok) */}
+      {selectedHistory && (
         <div
           className="modal-backdrop"
           onMouseDown={e => {
-            if (e.target === e.currentTarget) setSelectedMutation(null);
+            if (e.target === e.currentTarget) setSelectedHistory(null);
           }}
         >
           <div className="modal">
             <div className="modal-head">
               <div>
-                <p className="eyebrow">DETAIL UPDATE STOK</p>
-                <h2>
-                  {(productMap.get(selectedMutation.produk_id) || productMap.get(selectedMutation.productId || ""))?.name || selectedMutation.produk_id}
-                </h2>
+                <p className="eyebrow">DETAIL RIWAYAT STOK</p>
+                <h2>Total Stok Toko</h2>
                 <p>
-                  {selectedMutation.tanggal} · {selectedMutation.jenis || "Stok Harian"}
+                  {selectedHistory.tanggal} · {selectedHistory.jenis_perubahan || "Update Stok"}
                 </p>
               </div>
               <button
                 type="button"
                 className="icon-btn"
-                onClick={() => setSelectedMutation(null)}
+                onClick={() => setSelectedHistory(null)}
                 aria-label="Tutup"
               >
                 <X size={17} />
@@ -2188,31 +2180,31 @@ function InventoryView({
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
                 <span style={{ color: "#7a887b" }}>Waktu Pencatatan</span>
                 <strong>
-                  {new Date(selectedMutation.created_at || `${selectedMutation.tanggal}T12:00:00Z`).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium", timeZone: "Asia/Jakarta" })}
+                  {new Date(selectedHistory.waktu_update || `${selectedHistory.tanggal}T12:00:00Z`).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium", timeZone: "Asia/Jakarta" })}
                 </strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
-                <span style={{ color: "#7a887b" }}>Stok Sebelumnya</span>
-                <span>{(selectedMutation.stok_sebelumnya || 0).toLocaleString("id-ID")} ml</span>
+                <span style={{ color: "#7a887b" }}>Total Stok Sebelumnya</span>
+                <span>{(selectedHistory.total_stok_sebelumnya || 0).toLocaleString("id-ID")} ml</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
-                <span style={{ color: "#7a887b" }}>Stok Terbaru</span>
-                <strong style={{ color: "#1f4a2b" }}>{(selectedMutation.stok_terbaru || 0).toLocaleString("id-ID")} ml</strong>
+                <span style={{ color: "#7a887b" }}>Total Stok Terbaru</span>
+                <strong style={{ color: "#1f4a2b" }}>{(selectedHistory.total_stok_terbaru || 0).toLocaleString("id-ID")} ml</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
                 <span style={{ color: "#7a887b" }}>Perubahan Stok</span>
-                <strong style={{ color: (selectedMutation.perubahan || 0) >= 0 ? "#1b6928" : "#b91c1c" }}>
-                  {(selectedMutation.perubahan || 0) >= 0 ? `+${(selectedMutation.perubahan || 0).toLocaleString("id-ID")} ml` : `${(selectedMutation.perubahan || 0).toLocaleString("id-ID")} ml`}
+                <strong style={{ color: (selectedHistory.perubahan_stok || 0) > 0 ? "#15803d" : (selectedHistory.perubahan_stok || 0) < 0 ? "#b91c1c" : "#4f6052" }}>
+                  {(selectedHistory.perubahan_stok || 0) > 0 ? `+${(selectedHistory.perubahan_stok || 0).toLocaleString("id-ID")} ml` : `${(selectedHistory.perubahan_stok || 0).toLocaleString("id-ID")} ml`}
                 </strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: "12px" }}>
                 <span style={{ color: "#7a887b" }}>Jenis Perubahan</span>
-                <span className="trx-status-pill">{selectedMutation.jenis || "Stok Harian"}</span>
+                <span className="trx-status-pill">{selectedHistory.jenis_perubahan || "Stok Harian"}</span>
               </div>
-              {selectedMutation.catatan && (
+              {selectedHistory.keterangan && (
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid #e1e9df", fontSize: "12px" }}>
                   <span style={{ color: "#7a887b" }}>Keterangan</span>
-                  <span>{selectedMutation.catatan}</span>
+                  <span>{selectedHistory.keterangan}</span>
                 </div>
               )}
             </div>
@@ -2221,7 +2213,7 @@ function InventoryView({
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => setSelectedMutation(null)}
+                onClick={() => setSelectedHistory(null)}
               >
                 Tutup
               </button>
@@ -2885,14 +2877,14 @@ function ReportsView({
           <div>
             <h2 style={{ fontSize: "16px", color: "#253628", fontWeight: 700, margin: 0 }}>Rekonsiliasi Stok dan Penjualan Jamu</h2>
             <p style={{ fontSize: "11.5px", color: "#7a8a7c", margin: "4px 0 0" }}>
-              Perbandingan jamu terjual (input karyawan) dengan hasil kalkulasi perubahan fisik stok (Stok Kemarin − Stok Hari Ini + Restok).
+              Perbandingan jamu terjual (input) dengan hasil kalkulasi perubahan fisik stok (Stok Kemarin − Stok Hari Ini + Restok).
             </p>
           </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 }}>
           <div style={{ background: "#f8faf7", border: "1px solid #e4ede3", padding: "14px 16px", borderRadius: 8 }}>
-            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Jamu Terjual (Input Karyawan)</span>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Jamu Terjual (Input)</span>
             <strong style={{ display: "block", fontSize: "20px", color: "#255333", marginTop: 4 }}>
               {reconciliationData.inputSales.toLocaleString("id-ID")} ml
             </strong>
@@ -2920,7 +2912,7 @@ function ReportsView({
             padding: "14px 16px",
             borderRadius: 8
           }}>
-            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Selisih Rekonsiliasi</span>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}> Rekonsiliasi</span>
             <strong style={{
               display: "block",
               fontSize: "20px",

@@ -1821,8 +1821,8 @@ tbody tr:hover {
 /* Warning / Stok Menipis Red Card Styling - Matches image_ec373c24.png */
 .inv-stock-card.warning,
 .stock-card.warning {
-  background-color: #fef2f2 !important;
-  border-color: #fecaca !important;
+  background-color: #fff1f2 !important; /* pink-50 */
+  border-color: #fecaca !important; /* red-200 */
 }
 
 .inv-stock-card.warning:hover,
@@ -1838,8 +1838,8 @@ tbody tr:hover {
 
 .inv-stock-card.warning .inv-status-pill.warning,
 .stock-card.warning .stock-status-pill.warning {
-  background-color: #ffffff !important;
-  border: 1px solid #fca5a5 !important;
+  background-color: #fff1f2 !important;
+  border: 1px solid #fecaca !important;
   color: #b91c1c !important;
 }
 
@@ -1866,6 +1866,56 @@ tbody tr:hover {
 .inv-stock-card.warning .inv-edit-link,
 .stock-card.warning .stock-card-edit-btn {
   color: #b91c1c !important;
+}
+
+/* Safe / Stok Aman Green Card Styling */
+.inv-stock-card.safe,
+.stock-card.safe {
+  background-color: #f0fdf4 !important; /* green-50 */
+  border-color: #dcfce7 !important; /* green-200 */
+}
+
+.inv-stock-card.safe:hover,
+.stock-card.safe:hover {
+  border-color: #bbf7d0 !important;
+  box-shadow: 0 2px 8px rgba(21, 128, 61, 0.08) !important;
+}
+
+.inv-stock-card.safe .inv-card-code,
+.stock-card.safe .stock-card-code {
+  color: #166534 !important;
+}
+
+.inv-stock-card.safe .inv-status-pill.safe,
+.stock-card.safe .stock-status-pill.safe {
+  background-color: #f0fdf4 !important;
+  border: 1px solid #dcfce7 !important;
+  color: #15803d !important;
+}
+
+.inv-stock-card.safe .inv-card-qty,
+.stock-card.safe .stock-card-number {
+  color: #15803d !important;
+}
+
+.inv-stock-card.safe .inv-card-unit,
+.stock-card.safe .stock-card-unit {
+  color: #166534 !important;
+}
+
+.inv-stock-card.safe .inv-card-footer,
+.stock-card.safe .stock-card-foot {
+  border-top-color: #dcfce7 !important;
+}
+
+.inv-stock-card.safe .inv-card-date,
+.stock-card.safe .stock-card-date {
+  color: #22c55e !important;
+}
+
+.inv-stock-card.safe .inv-edit-link,
+.stock-card.safe .stock-card-edit-btn {
+  color: #15803d !important;
 }
 
 /* =========================================================================
