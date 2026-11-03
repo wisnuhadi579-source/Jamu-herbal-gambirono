@@ -209,6 +209,12 @@ export default function App() {
   // Quick single stock editing
   const [quickStockProduct, setQuickStockProduct] = useState<Product | null>(null);
   const [quickStockVal, setQuickStockVal] = useState<number>(0);
+  const [quickStockDate, setQuickStockDate] = useState<string>(getTodayIsoDate);
+  const [quickStockHasExisting, setQuickStockHasExisting] = useState<boolean>(false);
+
+  // Inventory date filter state
+  const [inventoryDateMode, setInventoryDateMode] = useState<"today" | "yesterday" | "custom">("today");
+  const [inventoryCustomDate, setInventoryCustomDate] = useState<string>(getTodayIsoDate);
 
   // Daily batch stock editing
   const [showDailyStockModal, setShowDailyStockModal] = useState(false);
@@ -281,6 +287,13 @@ export default function App() {
 
   // Calculations
   const { monthIso, isoDate: todayIso } = useMemo(() => getJakartaDateParts(currentDate), [currentDate]);
+  const yesterdayIso = useMemo(() => getJakartaYesterdayIso(currentDate), [currentDate]);
+
+  const activeInventoryDate = useMemo(() => {
+    if (inventoryDateMode === "today") return todayIso;
+    if (inventoryDateMode === "yesterday") return yesterdayIso;
+    return inventoryCustomDate || todayIso;
+  }, [inventoryDateMode, todayIso, yesterdayIso, inventoryCustomDate]);
 
   const totalMonthRevenue = useMemo(() => {
     const monthSales = sales.filter(s => {
@@ -410,6 +423,14 @@ export default function App() {
     }
   };
 
+  // Quick single stock editing opener
+  const handleOpenEditStockForDate = (product: Product, targetDate: string, currentQty: number | null) => {
+    setQuickStockProduct(product);
+    setQuickStockVal(currentQty !== null ? currentQty : 0);
+    setQuickStockDate(targetDate);
+    setQuickStockHasExisting(currentQty !== null);
+  };
+
   // Quick single stock edit save
   const handleSaveQuickStock = async () => {
     if (!quickStockProduct) return;
@@ -417,8 +438,9 @@ export default function App() {
     setError("");
     setNotice("");
     try {
-      await recordStocktake({ [quickStockProduct.id]: Math.max(0, quickStockVal) });
-      setNotice(`Stok ${quickStockProduct.sku || quickStockProduct.name} diperbarui menjadi ${quickStockVal} ${quickStockProduct.unit}.`);
+      const val = Math.max(0, quickStockVal);
+      await recordStocktake({ [quickStockProduct.id]: val }, quickStockDate);
+      setNotice(`Stok ${quickStockProduct.sku || quickStockProduct.name} untuk tanggal ${quickStockDate} berhasil disimpan (${val.toLocaleString("id-ID")} ${quickStockProduct.unit}).`);
       setQuickStockProduct(null);
       await refresh();
     } catch (err) {
@@ -428,17 +450,26 @@ export default function App() {
     }
   };
 
-  // Open daily batch stock update
-  const handleOpenDailyStock = () => {
+  // Open daily batch stock update (pre-fills with existing data for the chosen date if any)
+  const handleOpenDailyStock = (targetDate?: string) => {
+    const chosenDate = targetDate || activeInventoryDate || getTodayIsoDate();
     const draft: Record<string, number | ""> = {};
     const statusDraft: Record<string, string> = {};
+    
     products.forEach(p => {
-      draft[p.id] = p.stock;
-      statusDraft[p.id] = p.stock < 1000 ? "Stok menipis" : "Stok aman";
+      const entry = dailyStocks.find(s => (s.produk_id === p.id || s.productId === p.id || s.produk_id === p.sku || s.productId === p.sku) && (s.tanggal === chosenDate || s.date === chosenDate));
+      if (entry) {
+        const qty = Number(entry.jumlah !== undefined ? entry.jumlah : (entry.qty !== undefined ? entry.qty : entry.stock) || 0);
+        draft[p.id] = qty;
+        statusDraft[p.id] = qty < 1000 ? "Stok menipis" : "Stok aman";
+      } else {
+        draft[p.id] = "";
+        statusDraft[p.id] = "Stok aman";
+      }
     });
     setDailyStockDraft(draft);
     setDailyStatusDraft(statusDraft);
-    setDailyStockDate(getTodayIsoDate());
+    setDailyStockDate(chosenDate);
     setShowDailyStockModal(true);
   };
 
@@ -460,7 +491,7 @@ export default function App() {
       });
       await recordStocktake(itemsToSave, dailyStockDate, dailyStatusDraft);
       setShowDailyStockModal(false);
-      setNotice("Stok dagangan harian berhasil diperbarui dan tersimpan di database.");
+      setNotice(`Stok dagangan untuk tanggal ${dailyStockDate} berhasil diperbarui dan tersimpan di database.`);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui stok harian.");
@@ -748,7 +779,7 @@ export default function App() {
               </div>
               <button
                 className="btn btn-primary"
-                onClick={handleOpenDailyStock}
+                onClick={() => handleOpenDailyStock(activeInventoryDate)}
               >
                 Isi stok harian
               </button>
@@ -860,9 +891,18 @@ export default function App() {
               {view === "inventory" && (
                 <InventoryView
                   products={products}
+                  dailyStocks={dailyStocks}
                   aggregateHistory={aggregateStockHistory}
+                  currentDate={currentDate}
+                  filterMode={inventoryDateMode}
+                  setFilterMode={setInventoryDateMode}
+                  customDate={inventoryCustomDate}
+                  setCustomDate={setInventoryCustomDate}
+                  selectedDate={activeInventoryDate}
                   onAddVariant={openNewProduct}
-                  onEdit={openEditProduct}
+                  onEditProductMaster={openEditProduct}
+                  onEditStock={handleOpenEditStockForDate}
+                  onOpenBatchStock={handleOpenDailyStock}
                 />
               )}
 
@@ -936,7 +976,7 @@ export default function App() {
           <div className="modal">
             <div className="modal-head">
               <div>
-                <h2>Perbarui Stok: {quickStockProduct.sku || quickStockProduct.name}</h2>
+                <h2>{quickStockHasExisting ? "Edit Stok:" : "Input Stok Baru:"} {quickStockProduct.sku || quickStockProduct.name}</h2>
                 <p>{quickStockProduct.name} · Satuan: {quickStockProduct.unit}</p>
               </div>
               <button
@@ -948,16 +988,58 @@ export default function App() {
               </button>
             </div>
 
-            <div style={{ padding: "12px 0 20px" }}>
+            <div style={{ padding: "14px 0 20px" }}>
+              {/* Date Indicator Banner */}
+              <div style={{
+                background: "#f3f8f3",
+                border: "1px solid #dbe8dc",
+                borderRadius: 8,
+                padding: "10px 14px",
+                marginBottom: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
+                <div>
+                  <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#4f6052", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Tanggal Pencatatan
+                  </span>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#1f3323", marginTop: 2 }}>
+                    {formatIndonesianDate(new Date(quickStockDate + "T12:00:00Z"))}
+                  </div>
+                </div>
+                <span style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  background: quickStockDate === todayIso ? "#dcfce7" : (quickStockDate === yesterdayIso ? "#e0f2fe" : "#f1f5f9"),
+                  color: quickStockDate === todayIso ? "#166534" : (quickStockDate === yesterdayIso ? "#0369a1" : "#475569")
+                }}>
+                  {quickStockDate === todayIso ? "Hari Ini" : quickStockDate === yesterdayIso ? "Kemarin" : quickStockDate}
+                </span>
+              </div>
+
               <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#4f6052", marginBottom: 8 }}>
-                Jumlah Stok Tersedia Saat Ini
+                Jumlah Sisa Stok Fisik (ml)
               </label>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  style={{ width: 44, height: 44, fontSize: 18 }}
+                  style={{ width: 44, height: 44, fontSize: 13, fontWeight: 700, padding: 0 }}
+                  onClick={() => setQuickStockVal(v => Math.max(0, v - 100))}
+                  title="Kurangi 100 ml"
+                >
+                  −100
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 40, height: 44, fontSize: 18, padding: 0 }}
                   onClick={() => setQuickStockVal(v => Math.max(0, v - 1))}
+                  title="Kurangi 1 ml"
                 >
                   −
                 </button>
@@ -972,22 +1054,49 @@ export default function App() {
                     fontSize: 22,
                     fontWeight: 800,
                     textAlign: "center",
-                    border: "1px solid #dce4da",
+                    border: quickStockVal < 1000 ? "1px solid #fca5a5" : "1px solid #86efac",
+                    background: quickStockVal < 1000 ? "#fff1f2" : "#f0fdf4",
+                    color: quickStockVal < 1000 ? "#b91c1c" : "#15803d",
                     borderRadius: 8
                   }}
                 />
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  style={{ width: 44, height: 44, fontSize: 18 }}
+                  style={{ width: 40, height: 44, fontSize: 18, padding: 0 }}
                   onClick={() => setQuickStockVal(v => v + 1)}
+                  title="Tambah 1 ml"
                 >
                   +
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 44, height: 44, fontSize: 13, fontWeight: 700, padding: 0 }}
+                  onClick={() => setQuickStockVal(v => v + 100)}
+                  title="Tambah 100 ml"
+                >
+                  +100
+                </button>
               </div>
-              <p style={{ fontSize: "10px", color: "#8a968b", marginTop: 8 }}>
-                Batas minimum peringatan: {quickStockProduct.min_stock} {quickStockProduct.unit}
-              </p>
+
+              {/* Status preview based on 1000ml global rule */}
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: "11px", color: "#627564" }}>
+                  Status otomatis stok:
+                </span>
+                <span style={{
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  padding: "3px 10px",
+                  borderRadius: 12,
+                  background: quickStockVal < 1000 ? "#fff1f2" : "#f0fdf4",
+                  border: quickStockVal < 1000 ? "1px solid #fecaca" : "1px solid #dcfce7",
+                  color: quickStockVal < 1000 ? "#b91c1c" : "#15803d"
+                }}>
+                  {quickStockVal < 1000 ? "Stok menipis (< 1.000 ml)" : "Stok aman (≥ 1.000 ml)"}
+                </span>
+              </div>
             </div>
 
             <div className="modal-actions">
@@ -1002,8 +1111,9 @@ export default function App() {
                 type="button"
                 className="btn btn-primary"
                 onClick={handleSaveQuickStock}
+                disabled={saving}
               >
-                Simpan Stok
+                {saving ? "Menyimpan…" : "Simpan Stok"}
               </button>
             </div>
           </div>
@@ -2039,14 +2149,32 @@ function DashboardView({
 
 function InventoryView({
   products,
+  dailyStocks = [],
   aggregateHistory = [],
+  currentDate,
+  filterMode,
+  setFilterMode,
+  customDate,
+  setCustomDate,
+  selectedDate,
   onAddVariant,
-  onEdit
+  onEditProductMaster,
+  onEditStock,
+  onOpenBatchStock
 }: {
   products: Product[];
+  dailyStocks?: any[];
   aggregateHistory?: AggregateStockHistory[];
+  currentDate: Date;
+  filterMode: "today" | "yesterday" | "custom";
+  setFilterMode: (m: "today" | "yesterday" | "custom") => void;
+  customDate: string;
+  setCustomDate: (d: string) => void;
+  selectedDate: string;
   onAddVariant: () => void;
-  onEdit: (p: Product) => void;
+  onEditProductMaster: (p: Product) => void;
+  onEditStock: (product: Product, targetDate: string, currentQty: number | null) => void;
+  onOpenBatchStock: (targetDate: string) => void;
 }) {
   const [historySearch, setHistorySearch] = useState("");
   const [historyDate, setHistoryDate] = useState("");
@@ -2054,20 +2182,76 @@ function InventoryView({
   const [selectedHistory, setSelectedHistory] = useState<any | null>(null);
   const pageSize = 10;
 
-  const totalStockAll = useMemo(() => {
-    return products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
+  const todayIso = useMemo(() => getJakartaTodayIso(currentDate), [currentDate]);
+  const yesterdayIso = useMemo(() => getJakartaYesterdayIso(currentDate), [currentDate]);
+
+  // Formatted date string label with contextual indicator
+  const selectedDateLabel = useMemo(() => {
+    let suffix = "";
+    if (selectedDate === todayIso) suffix = " (Hari Ini)";
+    else if (selectedDate === yesterdayIso) suffix = " (Kemarin)";
+
+    try {
+      const d = new Date(`${selectedDate}T12:00:00Z`);
+      return new Intl.DateTimeFormat("id-ID", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      }).format(d) + suffix;
+    } catch {
+      return selectedDate + suffix;
+    }
+  }, [selectedDate, todayIso, yesterdayIso]);
+
+  // Active products in official Gambirono sequence
+  const activeProducts = useMemo(() => {
+    return products.filter(p => p.aktif !== false);
   }, [products]);
 
-  // Product mapping for fast lookup
-  const productMap = useMemo(() => {
-    const map = new Map<string, Product>();
-    products.forEach(p => {
-      map.set(p.id, p);
-      if (p.sku) map.set(p.sku, p);
-      if (p.code) map.set(p.code, p);
+  // Map of stock records strictly for the selectedDate from dailyStocks (gambirono_stok_harian)
+  const dateStockMap = useMemo(() => {
+    const map = new Map<string, { qty: number; status: string; tanggal: string }>();
+    const entries = dailyStocks.filter(s => (s.tanggal === selectedDate || s.date === selectedDate));
+    
+    entries.forEach(e => {
+      const pId = String(e.produk_id || e.productId || "");
+      const qty = Number(e.jumlah !== undefined ? e.jumlah : (e.qty !== undefined ? e.qty : e.stock) || 0);
+      const status = String(e.status || (qty < 1000 ? "Stok menipis" : "Stok aman"));
+      if (pId) {
+        map.set(pId, { qty, status, tanggal: e.tanggal || e.date || selectedDate });
+      }
     });
     return map;
-  }, [products]);
+  }, [dailyStocks, selectedDate]);
+
+  // Calculate total stock and completeness for selectedDate
+  const stockSummary = useMemo(() => {
+    let total = 0;
+    let recordedCount = 0;
+    const missingProductNames: string[] = [];
+
+    activeProducts.forEach(p => {
+      const record = dateStockMap.get(p.id) || (p.sku ? dateStockMap.get(p.sku) : undefined) || (p.code ? dateStockMap.get(p.code) : undefined);
+      if (record !== undefined) {
+        total += record.qty;
+        recordedCount++;
+      } else {
+        missingProductNames.push(p.sku || p.name);
+      }
+    });
+
+    const totalRequired = activeProducts.length || 14;
+    const isComplete = recordedCount >= totalRequired && totalRequired > 0;
+
+    return {
+      total,
+      recordedCount,
+      totalRequired,
+      isComplete,
+      missingProductNames
+    };
+  }, [activeProducts, dateStockMap]);
 
   // Filter and sort aggregate history
   const filteredHistory = useMemo(() => {
@@ -2094,38 +2278,158 @@ function InventoryView({
 
   return (
     <section className="inventory-panel">
-      {/* 1. Ringkasan Total Stok Card */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f3f8f2", border: "1px solid #d5e4d3", padding: "16px 20px", borderRadius: 10, marginBottom: 18 }}>
+      {/* 1. FILTER TANGGAL (Hari Ini | Kemarin | Pilih Tanggal) */}
+      <div className="inv-date-filter-container">
+        <div className="inv-date-filter-bar">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: "#1f3323", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Filter Tanggal Stok:
+            </span>
+            <div className="inv-date-segmented-group" role="tablist">
+              <button
+                type="button"
+                className={`inv-date-segment-btn ${filterMode === "today" ? "active" : ""}`}
+                onClick={() => setFilterMode("today")}
+                title={`Lihat stok hari ini (${todayIso})`}
+              >
+                <Calendar size={13} />
+                <span>Hari Ini</span>
+              </button>
+              <button
+                type="button"
+                className={`inv-date-segment-btn ${filterMode === "yesterday" ? "active" : ""}`}
+                onClick={() => setFilterMode("yesterday")}
+                title={`Lihat stok kemarin (${yesterdayIso})`}
+              >
+                <RotateCcw size={13} />
+                <span>Kemarin</span>
+              </button>
+              <button
+                type="button"
+                className={`inv-date-segment-btn ${filterMode === "custom" ? "active" : ""}`}
+                onClick={() => setFilterMode("custom")}
+                title="Pilih tanggal khusus"
+              >
+                <span>Pilih Tanggal</span>
+              </button>
+            </div>
+
+            {filterMode === "custom" && (
+              <div className="inv-date-picker-wrap">
+                <input
+                  type="date"
+                  className="inv-date-picker-input"
+                  value={customDate}
+                  max={todayIso}
+                  onChange={e => {
+                    if (e.target.value) {
+                      setCustomDate(e.target.value);
+                    }
+                  }}
+                  title="Pilih tanggal stok (maksimal hari ini)"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="inv-date-info-badge">
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#16a34a" }} />
+            <span>
+              Menampilkan stok: <strong>{selectedDateLabel}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Ringkasan Total Stok Card */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: stockSummary.isComplete ? "#f3f8f2" : (stockSummary.recordedCount > 0 ? "#fffbeb" : "#f8fafc"),
+        border: stockSummary.isComplete ? "1px solid #d5e4d3" : (stockSummary.recordedCount > 0 ? "1px solid #fef3c7" : "1px dashed #cbd5e1"),
+        padding: "16px 20px",
+        borderRadius: 10,
+        marginBottom: 18,
+        transition: "all 0.2s ease"
+      }}>
         <div>
-          <span style={{ fontSize: "11px", fontWeight: 700, color: "#325338", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL STOK JAMU (ML)</span>
-          <p style={{ fontSize: "11.5px", color: "#617563", margin: "3px 0 0" }}>Total keseluruhan stok fisik jamu herbal saat ini</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: stockSummary.isComplete ? "#325338" : (stockSummary.recordedCount > 0 ? "#92400e" : "#475569"), textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              TOTAL STOK JAMU (ML)
+            </span>
+            <span style={{
+              fontSize: "10px",
+              fontWeight: 800,
+              padding: "2.5px 8px",
+              borderRadius: "12px",
+              background: stockSummary.isComplete ? "#dcfce7" : (stockSummary.recordedCount > 0 ? "#fef3c7" : "#f1f5f9"),
+              color: stockSummary.isComplete ? "#166534" : (stockSummary.recordedCount > 0 ? "#b45309" : "#64748b")
+            }}>
+              {stockSummary.isComplete
+                ? "Total Lengkap (14 produk tercatat)"
+                : stockSummary.recordedCount > 0
+                  ? `Belum Lengkap (${stockSummary.recordedCount}/${stockSummary.totalRequired} produk tercatat)`
+                  : `Belum Ada Input (0/${stockSummary.totalRequired} produk)`}
+            </span>
+          </div>
+          <p style={{ fontSize: "11.5px", color: stockSummary.isComplete ? "#617563" : (stockSummary.recordedCount > 0 ? "#b45309" : "#64748b"), margin: "4px 0 0" }}>
+            {stockSummary.isComplete
+              ? `Total keseluruhan stok fisik seluruh 14 varian jamu pada ${selectedDateLabel}`
+              : stockSummary.recordedCount > 0
+                ? `Data stok belum lengkap untuk tanggal ${selectedDateLabel}. Varian belum dicatat: ${stockSummary.missingProductNames.join(", ")}`
+                : `Belum ada catatan stok fisik untuk tanggal ${selectedDateLabel}. Tekan tombol isi stok di bawah untuk mencatat stok.`}
+          </p>
         </div>
         <div style={{ textAlign: "right" }}>
-          <strong style={{ fontSize: "24px", color: "#1f4a2b", fontWeight: 800 }}>
-            {totalStockAll.toLocaleString("id-ID")} ml
-          </strong>
+          {stockSummary.recordedCount > 0 ? (
+            <strong style={{ fontSize: "24px", color: stockSummary.isComplete ? "#1f4a2b" : "#92400e", fontWeight: 800 }}>
+              {stockSummary.total.toLocaleString("id-ID")} ml{stockSummary.isComplete ? "" : "*"}
+            </strong>
+          ) : (
+            <strong style={{ fontSize: "20px", color: "#64748b", fontWeight: 700 }}>
+              Belum ada input
+            </strong>
+          )}
         </div>
       </div>
 
-      {/* 2. Actions Bar (Hanya + Tambah varian) */}
-      <div className="inventory-actions-bar" style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <button
-          type="button"
-          className="btn-variant-pill"
-          onClick={onAddVariant}
-        >
-          + Tambah varian
-        </button>
+      {/* 3. Actions Bar */}
+      <div className="inventory-actions-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: "12px", color: "#617563" }}>
+          Sisa fisik per produk pada <strong>{selectedDateLabel}</strong>
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ padding: "6px 14px", fontSize: "12px" }}
+            onClick={() => onOpenBatchStock(selectedDate)}
+            title={`Isi stok seluruh varian untuk tanggal ${selectedDate}`}
+          >
+            Isi stok tanggal ini ({selectedDate})
+          </button>
+          <button
+            type="button"
+            className="btn-variant-pill"
+            onClick={onAddVariant}
+          >
+            + Tambah varian
+          </button>
+        </div>
       </div>
 
-      {/* 3. Product Stock Cards Grid */}
+      {/* 4. Product Stock Cards Grid */}
       <div className="inventory-stock-grid">
-        {sortProductsByOrder(products).map(p => {
-          const isWarning = p.stock < 1000;
-          const statusText = isWarning ? "Stok menipis" : "Stok aman";
-          const statusClass = isWarning ? "warning" : "safe";
+        {sortProductsByOrder(activeProducts).map(p => {
+          const record = dateStockMap.get(p.id) || (p.sku ? dateStockMap.get(p.sku) : undefined) || (p.code ? dateStockMap.get(p.code) : undefined);
+          const hasInput = record !== undefined;
+          const qty = hasInput ? record.qty : null;
+          const isWarning = hasInput ? (qty! < 1000) : false;
+          const statusClass = !hasInput ? "unrecorded" : (isWarning ? "warning" : "safe");
+          const statusText = !hasInput ? "Belum diinput" : (isWarning ? "Stok menipis" : "Stok aman");
           const displayCode = p.sku || p.code || p.name;
-          const displayDate = p.last_updated || "Belum ada input";
+          const displayDate = hasInput ? record.tanggal : "Belum ada catatan";
 
           return (
             <div key={p.id} className={`inv-stock-card ${statusClass}`}>
@@ -2144,17 +2448,26 @@ function InventoryView({
                 </span>
               </div>
               <div className="inv-card-body">
-                <span className="inv-card-qty">{p.stock.toLocaleString("id-ID")}</span>
-                <span className="inv-card-unit">{p.unit}</span>
+                {hasInput ? (
+                  <>
+                    <span className="inv-card-qty">{qty!.toLocaleString("id-ID")}</span>
+                    <span className="inv-card-unit">{p.unit}</span>
+                  </>
+                ) : (
+                  <span className="inv-card-qty" style={{ fontSize: "18px", color: "#94a3b8", fontWeight: 700 }}>
+                    — <span style={{ fontSize: "10.5px", fontWeight: 600, color: "#94a3b8" }}>Belum diisi</span>
+                  </span>
+                )}
               </div>
               <div className="inv-card-footer">
                 <span className="inv-card-date">{displayDate}</span>
                 <button
                   type="button"
                   className="inv-edit-link"
-                  onClick={() => onEdit(p)}
+                  onClick={() => onEditStock(p, selectedDate, qty)}
+                  title={`Edit catatan stok ${p.sku || p.name} pada ${selectedDate}`}
                 >
-                  Edit ↗
+                  {hasInput ? "Edit ↗" : "+ Isi stok ↗"}
                 </button>
               </div>
             </div>
@@ -2807,7 +3120,7 @@ function ReportsView({
 
   // Helper: get total stock on a given ISO date with completeness check
   const getStockInfoForDate = useCallback((targetDate: string): { total: number; isComplete: boolean; count: number } => {
-    const activeProducts = products.filter(p => p.aktif);
+    const activeProducts = products.filter(p => p.aktif !== false);
     const requiredCount = activeProducts.length || 14;
 
     const entries = dailyStocks.filter(s => (s.tanggal === targetDate || s.date === targetDate));
@@ -2822,19 +3135,9 @@ function ReportsView({
         count: uniqueProductIds.size
       };
     }
-    
-    // Fallback for today if no entries yet (using current products state)
-    if (targetDate === todayIso && products.length > 0) {
-      const total = products.reduce((sum, p) => sum + Number(p.stock || 0), 0);
-      return {
-        total,
-        isComplete: products.length >= requiredCount,
-        count: products.length
-      };
-    }
 
     return { total: null as any, isComplete: false, count: 0 };
-  }, [dailyStocks, products, todayIso]);
+  }, [dailyStocks, products]);
 
   // Reconciliation data
   const reconciliationData = useMemo(() => {

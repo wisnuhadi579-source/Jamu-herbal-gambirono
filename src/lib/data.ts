@@ -252,6 +252,7 @@ export async function sendStoreAction(action: string, payload: unknown): Promise
     sales: parsed.sales, 
     stockMutations: parsed.stockMutations, 
     stockEntries: parsed.stockEntries,
+    aggregateStockHistory: parsed.aggregateStockHistory,
     revision: parsed.revision, 
     canEdit: true 
   };

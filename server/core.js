@@ -250,13 +250,16 @@ export function applyAction(state, action, payload) {
         const userStatus = autoStatus;
 
         if (p) {
-          p.stock = qty;
-          p.status = userStatus;
-          p.last_updated = date;
-          if (!p.payload) p.payload = {};
-          p.payload.stock = qty;
-          p.payload.status = userStatus;
-          p.payload.last_updated = date;
+          const isLatestDate = !p.last_updated || date >= p.last_updated;
+          if (isLatestDate) {
+            p.stock = qty;
+            p.status = userStatus;
+            p.last_updated = date;
+            if (!p.payload) p.payload = {};
+            p.payload.stock = qty;
+            p.payload.status = userStatus;
+            p.payload.last_updated = date;
+          }
         }
 
         const matchIdx = currentStocks.findIndex(s => {
