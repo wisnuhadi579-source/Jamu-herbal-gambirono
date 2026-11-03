@@ -92,6 +92,15 @@ export const initialSchema1State = {
   extra: {}
 };
 
+export function getPreviousIsoDate(isoDate) {
+  const [y, m, d] = String(isoDate).slice(0, 10).split('-').map(Number);
+  const prevDate = new Date(Date.UTC(y, m - 1, d - 1));
+  const prevYear = prevDate.getUTCFullYear();
+  const prevMonth = String(prevDate.getUTCMonth() + 1).padStart(2, '0');
+  const prevDay = String(prevDate.getUTCDate()).padStart(2, '0');
+  return `${prevYear}-${prevMonth}-${prevDay}`;
+}
+
 /**
  * Validasi aksi sebelum diterapkan ke state
  */

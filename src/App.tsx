@@ -106,6 +106,15 @@ export function getJakartaYesterdayIso(d: Date = new Date()): string {
   return `${yYear}-${yMonth}-${yDay}`;
 }
 
+export function getPreviousIsoDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const prevDate = new Date(Date.UTC(y, m - 1, d - 1));
+  const prevYear = prevDate.getUTCFullYear();
+  const prevMonth = String(prevDate.getUTCMonth() + 1).padStart(2, "0");
+  const prevDay = String(prevDate.getUTCDate()).padStart(2, "0");
+  return `${prevYear}-${prevMonth}-${prevDay}`;
+}
+
 const getTodayIsoDate = () => getJakartaTodayIso();
 
 function getSaleDate(s: Sale): string {
@@ -218,6 +227,7 @@ export default function App() {
 
   // Daily batch stock editing
   const [showDailyStockModal, setShowDailyStockModal] = useState(false);
+  const [dailyStockModalMode, setDailyStockModalMode] = useState<"new_today" | "edit">("new_today");
   const [dailyStockDraft, setDailyStockDraft] = useState<Record<string, number | "">>({});
   const [dailyStatusDraft, setDailyStatusDraft] = useState<Record<string, string>>({});
   const [dailyStockDate, setDailyStockDate] = useState<string>(getTodayIsoDate);
@@ -450,7 +460,26 @@ export default function App() {
     }
   };
 
-  // Open daily batch stock update (pre-fills with existing data for the chosen date if any)
+  // Open fresh daily stock input for today ("Isi Stok Hari Ini" from Dashboard)
+  // All 14 Gambirono products start cleanly at 0 ml without prefilling prior stock
+  const handleOpenNewDailyStock = () => {
+    const todayStr = getTodayIsoDate();
+    const draft: Record<string, number | ""> = {};
+    const statusDraft: Record<string, string> = {};
+
+    products.forEach(p => {
+      draft[p.id] = 0;
+      statusDraft[p.id] = "Stok menipis"; // 0 ml < 1000 ml
+    });
+
+    setDailyStockDraft(draft);
+    setDailyStatusDraft(statusDraft);
+    setDailyStockDate(todayStr);
+    setDailyStockModalMode("new_today");
+    setShowDailyStockModal(true);
+  };
+
+  // Open daily batch stock update in edit/custom date mode (pre-fills with existing data for the chosen date if any)
   const handleOpenDailyStock = (targetDate?: string) => {
     const chosenDate = targetDate || activeInventoryDate || getTodayIsoDate();
     const draft: Record<string, number | ""> = {};
@@ -470,6 +499,7 @@ export default function App() {
     setDailyStockDraft(draft);
     setDailyStatusDraft(statusDraft);
     setDailyStockDate(chosenDate);
+    setDailyStockModalMode("edit");
     setShowDailyStockModal(true);
   };
 
@@ -479,6 +509,18 @@ export default function App() {
 
   // Save daily batch stock update
   const handleSaveDailyStock = async () => {
+    const hasExistingForDate = dailyStocks.some(s => {
+      const sDate = s.tanggal || s.date;
+      return sDate === dailyStockDate;
+    });
+
+    if (hasExistingForDate) {
+      const confirmed = window.confirm(
+        `Catatan stok untuk tanggal ${dailyStockDate} sudah ada sebelumnya. Menyimpan formulir ini akan memperbarui catatan stok tanggal ${dailyStockDate}.\n\nLanjutkan menyimpan?`
+      );
+      if (!confirmed) return;
+    }
+
     setSaving(true);
     setError("");
     setNotice("");
@@ -486,7 +528,9 @@ export default function App() {
       const itemsToSave: Record<string, number> = {};
       Object.entries(dailyStockDraft).forEach(([pid, val]) => {
         if (val !== "" && val !== undefined) {
-          itemsToSave[pid] = Number(val);
+          itemsToSave[pid] = Math.max(0, Number(val));
+        } else if (dailyStockModalMode === "new_today") {
+          itemsToSave[pid] = 0;
         }
       });
       await recordStocktake(itemsToSave, dailyStockDate, dailyStatusDraft);
@@ -882,7 +926,7 @@ export default function App() {
                     setQuickStockProduct(p);
                     setQuickStockVal(p.stock);
                   }}
-                  onOpenDailyStock={handleOpenDailyStock}
+                  onOpenDailyStock={handleOpenNewDailyStock}
                   onViewSaleDetail={setSelectedSale}
                 />
               )}
@@ -1130,7 +1174,14 @@ export default function App() {
         >
           <div className="daily-stock-modal">
             <div className="daily-stock-header">
-              <h2>Isi stok harian</h2>
+              <div>
+                <h2>{dailyStockModalMode === "new_today" ? "Isi Stok Hari Ini" : "Isi stok harian"}</h2>
+                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#6b7280" }}>
+                  {dailyStockModalMode === "new_today"
+                    ? "Formulir pencatatan stok baru hari ini. Seluruh varian dimulai dari 0 ml."
+                    : `Pembaruan data stok untuk tanggal ${dailyStockDate}.`}
+                </p>
+              </div>
               <button
                 className="icon-btn"
                 onClick={() => setShowDailyStockModal(false)}
@@ -1142,7 +1193,7 @@ export default function App() {
 
             <div className="daily-stock-body">
               <div className="field-group" style={{ marginBottom: 14 }}>
-                <label className="field-label">Tanggal pencatatan</label>
+                <label className="field-label">Tanggal pencatatan (Asia/Jakarta)</label>
                 <input
                   type="date"
                   className="field-input"
@@ -1151,13 +1202,36 @@ export default function App() {
                 />
               </div>
 
+              {dailyStocks.some(s => (s.tanggal || s.date) === dailyStockDate) && (
+                <div style={{
+                  background: "#fffbeb",
+                  border: "1px solid #fde68a",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  marginBottom: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  color: "#92400e",
+                  fontSize: "12px",
+                  lineHeight: 1.4
+                }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0, color: "#d97706" }} />
+                  <span>
+                    <strong>Pemberitahuan:</strong> Catatan stok untuk tanggal <strong>{dailyStockDate}</strong> sudah ada sebelumnya. Menyimpan formulir ini akan memperbarui catatan stok tanggal tersebut.
+                  </span>
+                </div>
+              )}
+
               <p className="daily-stock-instruction">
-                Isi sisa stok fisik aktual setiap varian dalam mililiter (ml). Kosongkan untuk melewati varian; masukkan 0 jika habis.
+                {dailyStockModalMode === "new_today"
+                  ? "Masukkan jumlah stok fisik aktual untuk setiap varian (satuan ml). Nilai awal telah diatur ke 0 ml."
+                  : "Isi sisa stok fisik aktual setiap varian dalam mililiter (ml). Kosongkan untuk melewati varian; masukkan 0 jika habis."}
               </p>
 
               <div className="daily-stock-grid">
                 {sortProductsByOrder(products).map(p => {
-                  const label = `${p.sku || p.code || p.name} (${p.unit})`;
+                  const label = `${p.sku || p.code || p.name} (${p.unit || "ml"})`;
                   const currentVal = dailyStockDraft[p.id];
                   const currentStatus =
                     dailyStatusDraft[p.id] ||
@@ -1172,7 +1246,7 @@ export default function App() {
                         type="number"
                         min="0"
                         className="daily-stock-item-input"
-                        placeholder="Jumlah stok tersedia"
+                        placeholder="Jumlah stok (ml)"
                         value={currentVal !== undefined ? currentVal : ""}
                         onChange={e => {
                           const val = e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0);
@@ -1213,7 +1287,7 @@ export default function App() {
                 onClick={handleSaveDailyStock}
                 disabled={saving}
               >
-                {saving ? "Menyimpan…" : "Simpan stok harian"}
+                {saving ? "Menyimpan…" : (dailyStockModalMode === "new_today" ? "Simpan stok hari ini" : "Simpan stok harian")}
               </button>
             </div>
           </div>
@@ -1932,8 +2006,8 @@ function DashboardView({
             <h2>Stok dagangan hari ini</h2>
             <p>Input stok terakhir hari ini · Asia/Jakarta</p>
           </div>
-          <button className="stock-section-link" onClick={onOpenDailyStock}>
-            <span>Isi stok harian</span>
+          <button className="stock-section-link" onClick={onOpenDailyStock} title="Input stok baru hari ini (dimulai dari 0 ml)">
+            <span>Isi Stok Hari Ini</span>
             <span>→</span>
           </button>
         </div>
@@ -3038,6 +3112,22 @@ function HistoryView({
 
 
 
+const indonesianMonthNames: Record<string, string> = {
+  "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
+  "05": "Mei", "06": "Juni", "07": "Juli", "08": "Agustus",
+  "09": "September", "10": "Oktober", "11": "November", "12": "Desember"
+};
+
+function formatIndonesianMonthYear(monthStr: string): string {
+  const [y, m] = monthStr.split("-");
+  return `${indonesianMonthNames[m] || m} ${y}`;
+}
+
+function formatIndonesianDateLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${Number(d)} ${indonesianMonthNames[m] || m} ${y}`;
+}
+
 function ReportsView({
   sales,
   dailyStocks = [],
@@ -3056,6 +3146,11 @@ function ReportsView({
 
   const [periodMode, setPeriodMode] = useState<"daily" | "monthly">("monthly");
   const [selectedMonth, setSelectedMonth] = useState<string>(todayMonth);
+
+  // Dedicated filter state for Rekonsiliasi Stok dan Penjualan Jamu (defaults to "today")
+  const [reconFilterMode, setReconFilterMode] = useState<"today" | "custom_date" | "month">("today");
+  const [reconCustomDate, setReconCustomDate] = useState<string>(todayIso);
+  const [reconSelectedMonth, setReconSelectedMonth] = useState<string>(todayMonth);
 
   const latestDate = useMemo(() => {
     for (const s of sales) {
@@ -3119,57 +3214,88 @@ function ReportsView({
   const totalRestokMl = useMemo(() => validSales.reduce((sum, s) => sum + Number(s.restok_ml || 0), 0), [validSales]);
 
   // Helper: get total stock on a given ISO date with completeness check
-  const getStockInfoForDate = useCallback((targetDate: string): { total: number; isComplete: boolean; count: number } => {
+  const getStockInfoForDate = useCallback((targetDate: string): { total: number | null; isComplete: boolean; count: number } => {
     const activeProducts = products.filter(p => p.aktif !== false);
     const requiredCount = activeProducts.length || 14;
 
     const entries = dailyStocks.filter(s => (s.tanggal === targetDate || s.date === targetDate));
     
-    // If we have entries for this date, check if they cover all active products
     if (entries.length > 0) {
-      const uniqueProductIds = new Set(entries.map(e => e.produk_id || e.productId));
-      const total = entries.reduce((sum, item) => sum + Number(item.jumlah !== undefined ? item.jumlah : (item.qty !== undefined ? item.qty : item.stock) || 0), 0);
+      const prodMap = new Map<string, number>();
+      entries.forEach(item => {
+        const key = item.produk_id || item.productId || item.id;
+        const matched = products.find(p => p.id === key || p.sku === key || (p as any).kode === key);
+        const resolvedId = matched ? matched.id : String(key);
+        const qty = Number(item.jumlah !== undefined ? item.jumlah : (item.qty !== undefined ? item.qty : item.stock) || 0);
+        prodMap.set(resolvedId, qty);
+      });
+      const total = Array.from(prodMap.values()).reduce((sum, v) => sum + v, 0);
       return {
         total,
-        isComplete: uniqueProductIds.size >= requiredCount,
-        count: uniqueProductIds.size
+        isComplete: prodMap.size >= requiredCount,
+        count: prodMap.size
       };
     }
 
-    return { total: null as any, isComplete: false, count: 0 };
+    return { total: null, isComplete: false, count: 0 };
   }, [dailyStocks, products]);
 
-  // Reconciliation data
+  // Reconciliation data (strictly isolates today, custom_date, or month)
   const reconciliationData = useMemo(() => {
-    const activeCount = products.filter(p => p.aktif).length || 14;
+    if (reconFilterMode === "today" || reconFilterMode === "custom_date") {
+      const targetDate = reconFilterMode === "today" ? todayIso : reconCustomDate;
+      const prevDate = getPreviousIsoDate(targetDate);
 
-    if (periodMode === "daily") {
-      const prevDate = getJakartaYesterdayIso(new Date(`${selectedDate}T12:00:00Z`));
-      const infoToday = getStockInfoForDate(selectedDate);
+      // Filter valid transactions strictly on targetDate
+      const daySales = sales.filter(s => getSaleDate(s) === targetDate && s.status !== "Dibatalkan" && s.status !== "Batal");
+      const inputSales = daySales.reduce((sum, s) => sum + Number(s.jamu_terjual_ml || 0), 0);
+      const restok = daySales.reduce((sum, s) => sum + Number(s.restok_ml || 0), 0);
+
+      const infoToday = getStockInfoForDate(targetDate);
       const infoYesterday = getStockInfoForDate(prevDate);
 
-      const hasStockData = infoToday.count > 0 && infoYesterday.count > 0;
-      const isComplete = infoToday.isComplete && infoYesterday.isComplete;
-      const calculatedSold = hasStockData ? infoYesterday.total - infoToday.total + totalRestokMl : 0;
-      const diff = totalJamuTerjualMl - calculatedSold;
+      const hasBothDates = infoToday.total !== null && infoYesterday.total !== null;
+      const isComplete = hasBothDates && infoToday.isComplete && infoYesterday.isComplete;
+
+      let calculatedSold = 0;
+      let diff = 0;
+
+      if (hasBothDates && isComplete) {
+        calculatedSold = (infoYesterday.total! - infoToday.total!) + restok;
+        diff = inputSales - calculatedSold;
+      }
 
       return {
-        hasStockData,
-        isComplete,
-        inputSales: totalJamuTerjualMl,
-        inputRestock: totalRestokMl,
+        mode: reconFilterMode,
+        targetDate,
+        prevDate,
+        inputSales,
+        restok,
         stokToday: infoToday.total,
         stokYesterday: infoYesterday.total,
+        hasStockData: hasBothDates && isComplete,
+        isComplete,
         calculatedSold,
         diff,
-        missingDays: !infoToday.isComplete ? [selectedDate] : (!infoYesterday.isComplete ? [prevDate] : [])
+        infoToday,
+        infoYesterday,
+        missingDays: !infoToday.isComplete ? [targetDate] : (!infoYesterday.isComplete ? [prevDate] : []),
+        validDaysCount: isComplete ? 1 : 0
       };
     } else {
-      // Monthly mode: calculate day-by-day accumulation
-      const [yearStr, monthStr] = selectedMonth.split("-");
+      // Monthly mode: calculate daily reconciliation for every day in the month
+      const [yearStr, monthStr] = reconSelectedMonth.split("-");
       const year = Number(yearStr);
       const month = Number(monthStr);
       const daysInMonth = new Date(year, month, 0).getDate();
+
+      // Filter valid transactions strictly in the selected month
+      const monthSales = sales.filter(s => {
+        const d = getSaleDate(s);
+        return d && d.startsWith(reconSelectedMonth) && s.status !== "Dibatalkan" && s.status !== "Batal";
+      });
+      const inputSales = monthSales.reduce((sum, s) => sum + Number(s.jamu_terjual_ml || 0), 0);
+      const totalMonthRestok = monthSales.reduce((sum, s) => sum + Number(s.restok_ml || 0), 0);
 
       let accumulatedCalculatedSold = 0;
       let validDaysCount = 0;
@@ -3179,9 +3305,9 @@ function ReportsView({
       for (let day = 1; day <= daysInMonth; day++) {
         const dStr = String(day).padStart(2, "0");
         const currIso = `${yearStr}-${monthStr}-${dStr}`;
-        const prevIso = getJakartaYesterdayIso(new Date(`${currIso}T12:00:00Z`));
+        const prevIso = getPreviousIsoDate(currIso);
 
-        // Skip future dates
+        // Skip future dates if looking at the current month
         if (currIso > todayIso) continue;
 
         const dayValidSales = sales.filter(s => getSaleDate(s) === currIso && s.status !== "Dibatalkan" && s.status !== "Batal");
@@ -3191,10 +3317,11 @@ function ReportsView({
         const infoYesterday = getStockInfoForDate(prevIso);
 
         if (infoToday.total !== null && infoYesterday.total !== null) {
-          const dayCalculatedSold = (infoYesterday.total - infoToday.total) + dayRestock;
-          accumulatedCalculatedSold += dayCalculatedSold;
-          validDaysCount++;
-          if (!infoToday.isComplete || !infoYesterday.isComplete) {
+          if (infoToday.isComplete && infoYesterday.isComplete) {
+            const dayCalculatedSold = (infoYesterday.total - infoToday.total) + dayRestock;
+            accumulatedCalculatedSold += dayCalculatedSold;
+            validDaysCount++;
+          } else {
             incompleteDays.push(currIso);
           }
         } else {
@@ -3203,24 +3330,25 @@ function ReportsView({
       }
 
       const hasStockData = validDaysCount > 0;
-      const isComplete = missingDays.length === 0 && incompleteDays.length === 0;
-      const diff = totalJamuTerjualMl - accumulatedCalculatedSold;
+      const isComplete = missingDays.length === 0 && incompleteDays.length === 0 && validDaysCount > 0;
+      const diff = inputSales - accumulatedCalculatedSold;
 
       return {
-        hasStockData,
-        isComplete,
-        inputSales: totalJamuTerjualMl,
-        inputRestock: totalRestokMl,
+        mode: "month" as const,
+        targetMonth: reconSelectedMonth,
+        inputSales,
+        restok: totalMonthRestok,
         stokToday: null,
         stokYesterday: null,
+        hasStockData,
+        isComplete,
         calculatedSold: accumulatedCalculatedSold,
         diff,
-        missingDays,
-        incompleteDays,
-        validDaysCount
+        validDaysCount,
+        missingDays: [...missingDays, ...incompleteDays]
       };
     }
-  }, [periodMode, selectedDate, selectedMonth, totalJamuTerjualMl, totalRestokMl, getStockInfoForDate, sales, products, todayIso]);
+  }, [reconFilterMode, reconCustomDate, reconSelectedMonth, todayIso, sales, getStockInfoForDate]);
 
   const monthNameMap: Record<string, string> = {
     "01": "Januari", "02": "Februari", "03": "Maret", "04": "April",
@@ -3365,46 +3493,144 @@ function ReportsView({
 
       {/* Section D & E: Rekonsiliasi Stok dan Penjualan Jamu */}
       <section className="report-table-panel" style={{ marginBottom: 24, padding: 20, background: "#ffffff", borderRadius: 12, border: "1px solid #e1e9df" }}>
-        <div className="report-table-header" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14, marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: "16px", color: "#253628", fontWeight: 700, margin: 0 }}>Rekonsiliasi Stok dan Penjualan Jamu</h2>
             <p style={{ fontSize: "11.5px", color: "#7a8a7c", margin: "4px 0 0" }}>
-              Perbandingan jamu terjual (input) dengan hasil kalkulasi perubahan fisik stok (Stok Kemarin − Stok Hari Ini + Restok).
+              Perbandingan jamu terjual (input karyawan) dengan hasil kalkulasi perubahan fisik stok (Stok Kemarin − Stok Hari Ini + Restok).
             </p>
+          </div>
+
+          {/* Segmented Control Filter Khusus Rekonsiliasi */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div className="report-toggle-group">
+              <button
+                type="button"
+                className={`report-toggle-btn ${reconFilterMode === "today" ? "active" : ""}`}
+                onClick={() => setReconFilterMode("today")}
+                title="Rekonsiliasi stok hari ini"
+              >
+                Hari Ini
+              </button>
+              <button
+                type="button"
+                className={`report-toggle-btn ${reconFilterMode === "custom_date" ? "active" : ""}`}
+                onClick={() => setReconFilterMode("custom_date")}
+                title="Pilih tanggal tertentu"
+              >
+                Pilih Tanggal
+              </button>
+              <button
+                type="button"
+                className={`report-toggle-btn ${reconFilterMode === "month" ? "active" : ""}`}
+                onClick={() => setReconFilterMode("month")}
+                title="Pilih bulan tertentu"
+              >
+                Pilih Bulan
+              </button>
+            </div>
+
+            {reconFilterMode === "custom_date" && (
+              <div className="report-date-selector">
+                <Calendar size={13} style={{ color: "#526754" }} />
+                <input
+                  type="date"
+                  value={reconCustomDate}
+                  max={todayIso}
+                  onChange={e => e.target.value && setReconCustomDate(e.target.value)}
+                  title="Pilih tanggal rekonsiliasi (maksimal hari ini)"
+                />
+              </div>
+            )}
+
+            {reconFilterMode === "month" && (
+              <div className="report-date-selector" style={{ position: "relative", cursor: "pointer" }}>
+                <span>{formatIndonesianMonthYear(reconSelectedMonth)}</span>
+                <Calendar size={13} style={{ color: "#526754" }} />
+                <input
+                  type="month"
+                  value={reconSelectedMonth}
+                  max={todayMonth}
+                  onChange={e => e.target.value && setReconSelectedMonth(e.target.value)}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    opacity: 0,
+                    cursor: "pointer",
+                    width: "100%",
+                    height: "100%"
+                  }}
+                  title="Pilih bulan rekonsiliasi"
+                />
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Info label periode terpilih */}
+        <div style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 16,
+          fontSize: "12px",
+          color: "#2e4231",
+          background: "#f4f8f3",
+          padding: "5px 12px",
+          borderRadius: 6,
+          border: "1px solid #dce8db"
+        }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#16a34a" }} />
+          <span>
+            Periode Rekonsiliasi: <strong>
+              {reconFilterMode === "today" 
+                ? `Hari Ini (${formatIndonesianDateLabel(todayIso)})` 
+                : (reconFilterMode === "custom_date" ? formatIndonesianDateLabel(reconCustomDate) : formatIndonesianMonthYear(reconSelectedMonth))}
+            </strong>
+          </span>
+        </div>
+
+        {/* 3 Main Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 16 }}>
+          {/* Card 1: Jamu Terjual (Input Karyawan) */}
           <div style={{ background: "#f8faf7", border: "1px solid #e4ede3", padding: "14px 16px", borderRadius: 8 }}>
-            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Jamu Terjual (Input)</span>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Jamu Terjual (Input Karyawan)</span>
             <strong style={{ display: "block", fontSize: "20px", color: "#255333", marginTop: 4 }}>
               {reconciliationData.inputSales.toLocaleString("id-ID")} ml
             </strong>
-            <span style={{ fontSize: "10px", color: "#8a968b" }}>Catatan formulir transaksi</span>
+            <span style={{ fontSize: "10px", color: "#8a968b" }}>
+              {reconFilterMode === "month" 
+                ? "Akumulasi input transaksi valid bulan ini" 
+                : `Total transaksi valid ${reconFilterMode === "today" ? "hari ini" : formatIndonesianDateLabel(reconciliationData.targetDate || "")}`}
+            </span>
           </div>
 
+          {/* Card 2: Stok Terjual (Hasil Perhitungan) */}
           <div style={{ background: "#f8faf7", border: "1px solid #e4ede3", padding: "14px 16px", borderRadius: 8 }}>
             <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Stok Terjual (Hasil Perhitungan)</span>
             <strong style={{ display: "block", fontSize: "20px", color: reconciliationData.hasStockData ? "#255333" : "#d97706", marginTop: 4 }}>
               {reconciliationData.hasStockData 
                 ? `${reconciliationData.calculatedSold.toLocaleString("id-ID")} ml` 
-                : "Data tidak tersedia"}
+                : "Data stok belum lengkap"}
               {reconciliationData.hasStockData && !reconciliationData.isComplete && (
-                <span style={{ fontSize: "10px", color: "#d97706", display: "block", fontWeight: 500 }}> (Parsial)</span>
+                <span style={{ fontSize: "10px", color: "#d97706", display: "inline-block", fontWeight: 600, marginLeft: 4 }}> (Parsial)</span>
               )}
             </strong>
             <span style={{ fontSize: "10px", color: "#8a968b" }}>
-              {periodMode === "daily" ? "Formula: Stok Kemarin − Stok Hari Ini + Restok" : `Akumulasi ${reconciliationData.validDaysCount || 0} hari valid`}
+              {reconFilterMode === "month" 
+                ? (reconciliationData.isComplete ? "Akumulasi seluruh hari dalam bulan" : `Akumulasi ${reconciliationData.validDaysCount || 0} hari valid`)
+                : "Formula: Stok Kemarin − Stok Hari Ini + Restok"}
             </span>
           </div>
 
+          {/* Card 3: Rekonsiliasi / Selisih */}
           <div style={{
             background: !reconciliationData.hasStockData ? "#fffbeb" : (!reconciliationData.isComplete ? "#fff7ed" : (reconciliationData.diff === 0 ? "#f0fdf4" : "#fef2f2")),
             border: `1px solid ${!reconciliationData.hasStockData ? "#fcd34d" : (!reconciliationData.isComplete ? "#fdba74" : (reconciliationData.diff === 0 ? "#86efac" : "#fca5a5"))}`,
             padding: "14px 16px",
             borderRadius: 8
           }}>
-            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}> Rekonsiliasi</span>
+            <span style={{ fontSize: "11px", color: "#6e7d70", fontWeight: 600 }}>Rekonsiliasi / Selisih</span>
             <strong style={{
               display: "block",
               fontSize: "20px",
@@ -3424,12 +3650,15 @@ function ReportsView({
               color: !reconciliationData.hasStockData ? "#b45309" : (!reconciliationData.isComplete ? "#9a3412" : (reconciliationData.diff === 0 ? "#15803d" : "#b91c1c"))
             }}>
               {!reconciliationData.hasStockData
-                ? "Data stok kosong"
-                : (!reconciliationData.isComplete ? "Data belum lengkap" : (reconciliationData.diff === 0 ? "Sesuai" : "Perlu pemeriksaan"))}
+                ? "Data belum lengkap"
+                : (!reconciliationData.isComplete 
+                    ? "Status Parsial" 
+                    : (reconciliationData.diff === 0 ? "Sesuai" : (reconciliationData.diff > 0 ? "Input karyawan lebih besar" : "Input karyawan lebih kecil")))}
             </span>
           </div>
         </div>
 
+        {/* Explanation & Breakdown Panel */}
         <div style={{
           fontSize: "11.5px",
           lineHeight: 1.5,
@@ -3439,25 +3668,55 @@ function ReportsView({
           borderRadius: 8,
           border: "1px solid #e7eee6"
         }}>
-          {!reconciliationData.hasStockData ? (
-            <span>Catatan stok harian belum tersedia pada periode ini. Silakan isi stok harian pada menu Barang & stok.</span>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {reconciliationData.diff === 0 && reconciliationData.isComplete ? (
-                <span>Laporan penjualan karyawan tepat sesuai dengan perubahan stok fisik di toko (0 ml).</span>
+          {reconFilterMode === "month" ? (
+            /* Monthly explanation */
+            <div>
+              <div style={{ marginBottom: 6 }}>
+                <strong>Rekap Bulanan ({formatIndonesianMonthYear(reconSelectedMonth)}):</strong> Total jamu terjual input karyawan: <strong>{reconciliationData.inputSales.toLocaleString("id-ID")} ml</strong> · Akumulasi stok terjual harian: <strong>{reconciliationData.hasStockData ? `${reconciliationData.calculatedSold.toLocaleString("id-ID")} ml` : "0 ml"}</strong> ({reconciliationData.validDaysCount} hari valid tercatat).
+              </div>
+              {reconciliationData.hasStockData && reconciliationData.isComplete ? (
+                reconciliationData.diff === 0 ? (
+                  <span style={{ color: "#15803d" }}>Seluruh hari dalam bulan ini tercatat lengkap dan hasil rekonsiliasi tepat sesuai (0 ml).</span>
+                ) : (
+                  <span>
+                    Selisih bulanan: <strong>{reconciliationData.diff > 0 ? "+" : ""}{reconciliationData.diff.toLocaleString("id-ID")} ml</strong> ({reconciliationData.diff > 0 ? "Input karyawan lebih besar" : "Input karyawan lebih kecil"}).
+                  </span>
+                )
               ) : (
-                <span>
-                  {reconciliationData.isComplete ? "Analisis:" : "Analisis (Berdasarkan data parsial):"} Terdapat selisih <strong>{reconciliationData.diff > 0 ? "+" : ""}{reconciliationData.diff.toLocaleString("id-ID")} ml</strong>. Laporan karyawan ({reconciliationData.inputSales.toLocaleString("id-ID")} ml) {reconciliationData.diff > 0 ? "lebih besar" : "lebih kecil"} daripada hasil perhitungan perubahan fisik stok ({reconciliationData.calculatedSold.toLocaleString("id-ID")} ml).
-                </span>
-              )}
-              
-              {!reconciliationData.isComplete && (
-                <div style={{ marginTop: 4, padding: "8px 12px", background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: 6, color: "#9a3412" }}>
-                  <strong>Data belum lengkap:</strong> Kalkulasi di atas hanya mencakup {reconciliationData.validDaysCount} hari yang memiliki data stok lengkap (14 produk).
+                <div style={{ marginTop: 6, padding: "8px 12px", background: "#fff7ed", border: "1px solid #ffedd5", borderRadius: 6, color: "#9a3412" }}>
+                  <strong>Status Parsial ({reconciliationData.validDaysCount} hari valid tercatat):</strong>
+                  <div style={{ marginTop: 2 }}>
+                    Kalkulasi di atas hanya mencakup hari-hari yang memiliki data stok fisik lengkap (14 varian) beserta stok pembanding hari sebelumnya. Jangan menganggap hasil parsial sebagai total bulanan yang lengkap.
+                  </div>
                   {(reconciliationData.missingDays || []).length > 0 && (
                     <div style={{ marginTop: 4, fontSize: "10.5px" }}>
-                      Hari tanpa data stok: {reconciliationData.missingDays?.slice(0, 5).join(", ")}{(reconciliationData.missingDays?.length || 0) > 5 ? "..." : ""}
+                      Tanggal belum lengkap: {reconciliationData.missingDays.slice(0, 7).join(", ")}{(reconciliationData.missingDays.length > 7 ? ` (+${reconciliationData.missingDays.length - 7} hari lainnya)` : "")}
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Daily explanation (Hari Ini or Pilih Tanggal) */
+            <div>
+              {!reconciliationData.hasStockData ? (
+                <div style={{ color: "#9a3412" }}>
+                  <strong>Data stok belum lengkap:</strong> Untuk menghitung rekonsiliasi tanggal <strong>{formatIndonesianDateLabel(reconciliationData.targetDate || "")}</strong>, diperlukan catatan stok fisik lengkap (14 varian) pada tanggal tersebut dan tanggal pembanding sebelumnya (<strong>{formatIndonesianDateLabel(reconciliationData.prevDate || "")}</strong>).
+                  <div style={{ marginTop: 4, fontSize: "10.5px" }}>
+                    Stok {reconciliationData.prevDate}: {reconciliationData.infoYesterday?.total !== null ? `${reconciliationData.infoYesterday?.total.toLocaleString("id-ID")} ml (${reconciliationData.infoYesterday?.count}/14 varian)` : "Belum dicatat"} · Stok {reconciliationData.targetDate}: {reconciliationData.infoToday?.total !== null ? `${reconciliationData.infoToday?.total.toLocaleString("id-ID")} ml (${reconciliationData.infoToday?.count}/14 varian)` : "Belum dicatat"}.
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: 6 }}>
+                    <strong>Rincian Perhitungan ({reconciliationData.targetDate}):</strong> Stok {reconciliationData.prevDate} ({reconciliationData.stokYesterday?.toLocaleString("id-ID")} ml) − Stok {reconciliationData.targetDate} ({reconciliationData.stokToday?.toLocaleString("id-ID")} ml) + Restok ({reconciliationData.restok.toLocaleString("id-ID")} ml) = <strong>{reconciliationData.calculatedSold.toLocaleString("id-ID")} ml</strong>.
+                  </div>
+                  {reconciliationData.diff === 0 ? (
+                    <span style={{ color: "#15803d" }}>Laporan penjualan karyawan tepat sesuai dengan perubahan stok fisik di toko (0 ml selisih).</span>
+                  ) : (
+                    <span>
+                      Terdapat selisih <strong>{reconciliationData.diff > 0 ? "+" : ""}{reconciliationData.diff.toLocaleString("id-ID")} ml</strong>: Jamu terjual input karyawan ({reconciliationData.inputSales.toLocaleString("id-ID")} ml) {reconciliationData.diff > 0 ? "lebih besar" : "lebih kecil"} dibandingkan hasil perhitungan perubahan fisik stok ({reconciliationData.calculatedSold.toLocaleString("id-ID")} ml).
+                    </span>
                   )}
                 </div>
               )}
